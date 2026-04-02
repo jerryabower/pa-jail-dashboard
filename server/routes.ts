@@ -117,6 +117,8 @@ function computeDelta(snapA: Snapshot, snapB: Snapshot): DeltaResult {
 
 const PADOC_CACHE_FILE = fs.existsSync("/home/user/workspace/jail-dashboard/padoc_cache.json")
   ? "/home/user/workspace/jail-dashboard/padoc_cache.json"
+  : fs.existsSync("/app/padoc_cache.json")
+  ? "/app/padoc_cache.json"
   : path.resolve(process.cwd(), "padoc_cache.json");
 const PADOC_CACHE_TTL = 60 * 60 * 1000; // 60 minutes
 const CACHE_TTL       =  5 * 60 * 1000; //  5 minutes (county jails)
