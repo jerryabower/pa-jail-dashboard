@@ -148,10 +148,29 @@ function parsePythonOutput(stdout: string): any[] {
   return inmates;
 }
 
+function normalizePadocInmate(rec: any, idx: number): any {
+  // Cache stores Python-dict keys (dob, booking_number, gender)
+  // Frontend expects the same shape as county jails (ageDob, bookingNumber, etc.)
+  if (rec.ageDob !== undefined) return rec; // already normalized
+  const nameParts = (rec.name || "").split(", ");
+  return {
+    id: idx + 1,
+    name: rec.name || "",
+    lastName: nameParts[0]?.trim() || "",
+    firstName: nameParts[1]?.trim() || "",
+    ageDob: rec.dob || "",
+    gender: rec.gender || "",
+    bookingNumber: rec.booking_number || "",
+    facility: rec.facility || "",
+  };
+}
+
 function loadPadocFromDisk(): { data: any[]; ts: number } | null {
   try {
     if (!fs.existsSync(PADOC_CACHE_FILE)) return null;
     const raw = JSON.parse(fs.readFileSync(PADOC_CACHE_FILE, "utf8"));
+    // Normalize all records to frontend shape
+    raw.data = raw.data.map(normalizePadocInmate);
     return raw;
   } catch {
     return null;
@@ -177,8 +196,9 @@ async function backgroundFetchPadoc(): Promise<void> {
     );
     const inmates = parsePythonOutput(stdout);
     if (inmates.length > 0) {
-      savePadocToDisk(inmates);
-      console.log(`[padoc] background fetch complete: ${inmates.length} inmates`);
+      const normalized = inmates.map(normalizePadocInmate);
+      savePadocToDisk(normalized);
+      console.log(`[padoc] background fetch complete: ${normalized.length} inmates`);
     } else {
       console.log("[padoc] background fetch returned 0 inmates — keeping old cache");
     }
