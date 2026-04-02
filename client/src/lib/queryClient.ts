@@ -1,6 +1,11 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-const API_BASE = "__PORT_5000__".startsWith("__") ? "" : "__PORT_5000__";
+// Use Railway backend when deployed, local server in dev
+const API_BASE = "__PORT_5000__".startsWith("__")
+  ? (window.location.hostname.includes("railway.app") || window.location.hostname.includes("pplx.app") || window.location.hostname.includes("perplexity.ai")
+    ? "https://pa-jail-dashboard-production.up.railway.app"
+    : "")
+  : "__PORT_5000__";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
