@@ -65,6 +65,7 @@ type ActiveView = "roster" | "delta";
 
 const FACILITIES = [
   { key: "york-prison", label: "York County Prison",  short: "York Prison",  slowFetch: false },
+  { key: "adams",       label: "Adams County",        short: "Adams",        slowFetch: false },
   { key: "dauphin",     label: "Dauphin County",      short: "Dauphin",      slowFetch: false },
   { key: "lancaster",   label: "Lancaster County",    short: "Lancaster",    slowFetch: false },
   { key: "padoc",       label: "PA State Prisons",    short: "PA DOC",       slowFetch: true  },
@@ -630,6 +631,8 @@ export default function App() {
   const facConfig = FACILITIES.find(f => f.key === activeFacility)!;
 
   const isYorkPrison = activeFacility === "york-prison";
+  const isAdams = activeFacility === "adams";
+  const isComingSoon = isYorkPrison || isAdams;
   const isSlowFetch = FACILITIES.find(f => f.key === activeFacility)?.slowFetch ?? false;
 
   return (
@@ -646,7 +649,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · York · Dauphin · Lancaster · PA State
+              Live public data · York · Adams · Dauphin · Lancaster · PA State
             </p>
           </div>
         </div>
@@ -662,7 +665,7 @@ export default function App() {
               variant="outline"
               size="sm"
               onClick={() => exportCSV(filtered, activeFacility)}
-              disabled={isLoading || !data?.inmates?.length || isYorkPrison}
+              disabled={isLoading || !data?.inmates?.length || isComingSoon}
               data-testid="button-export"
               className="text-xs gap-1.5 h-8"
             >
@@ -670,7 +673,7 @@ export default function App() {
               Export CSV
             </Button>
           )}
-          {activeView === "roster" && !isYorkPrison && (
+          {activeView === "roster" && !isComingSoon && (
             <Button
               variant="outline"
               size="sm"
@@ -714,7 +717,7 @@ export default function App() {
       </nav>
 
       {/* ── View toggle (Roster / Delta) — only for live facilities ── */}
-      {!isYorkPrison && (
+      {!isComingSoon && (
         <div className="shrink-0 flex border-b border-border bg-background">
           <button
             onClick={() => setActiveView("roster")}
@@ -744,7 +747,7 @@ export default function App() {
       )}
 
       {/* ── Toolbar (roster view only) ───────────────────────────────── */}
-      {activeView === "roster" && !isYorkPrison && (
+      {activeView === "roster" && !isComingSoon && (
         <div className="shrink-0 flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -778,8 +781,8 @@ export default function App() {
       {/* ── Main content ──────────────────────────────────────────────── */}
       <main className="flex-1 overflow-y-auto overscroll-contain bg-background">
 
-        {/* York Prison — coming soon */}
-        {isYorkPrison && activeView !== "delta" ? (
+        {/* Coming soon facilities */}
+        {isComingSoon && activeView !== "delta" ? (
           <div className="flex flex-col items-center justify-center py-20 gap-5 text-muted-foreground">
             <svg viewBox="0 0 48 48" fill="none" className="w-12 h-12 text-primary/40" stroke="currentColor" strokeWidth="1.5">
               <rect x="8" y="16" width="32" height="26" rx="2" />
@@ -788,25 +791,29 @@ export default function App() {
               <line x1="24" y1="32" x2="24" y2="36" strokeWidth="2" strokeLinecap="round" />
             </svg>
             <div className="text-center">
-              <p className="font-semibold text-foreground text-base">York County Prison — Roster Coming Soon</p>
+              <p className="font-semibold text-foreground text-base">
+                {isAdams ? "Adams County" : "York County Prison"} — Roster Coming Soon
+              </p>
               <p className="text-sm mt-2 max-w-xs text-center leading-relaxed">
-                York County Prison has not yet launched a public online inmate search. The county's website states it is coming soon.
+                {isAdams
+                  ? "Adams County Adult Correctional Complex does not currently offer a public online inmate search."
+                  : "York County Prison has not yet launched a public online inmate search. The county's website states it is coming soon."}
               </p>
             </div>
             <a
-              href="https://yorkcountypa.gov/477/Prison"
+              href={isAdams ? "https://www.adamscountypa.gov/departments/adultcorrectioncomplex" : "https://yorkcountypa.gov/477/Prison"}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-primary hover:underline font-medium"
             >
-              York County Prison official page →
+              {isAdams ? "Adams County Correctional Complex official page" : "York County Prison official page"} →
             </a>
             <p className="text-xs text-muted-foreground/60 max-w-xs text-center">
               You will be notified automatically when the public roster becomes available.
             </p>
           </div>
 
-        ) : activeView === "delta" && !isYorkPrison ? (
+        ) : activeView === "delta" && !isComingSoon ? (
           <DeltaPanel facility={activeFacility} />
 
         ) : (isLoading || (data?.fetching && data?.inmates?.length === 0)) ? (
