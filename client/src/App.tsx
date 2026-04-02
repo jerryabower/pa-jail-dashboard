@@ -65,7 +65,6 @@ type ActiveView = "roster" | "delta";
 
 const FACILITIES = [
   { key: "york-prison", label: "York County Prison",  short: "York Prison",  slowFetch: false },
-  { key: "adams",       label: "Adams County",        short: "Adams",        slowFetch: false },
   { key: "dauphin",     label: "Dauphin County",      short: "Dauphin",      slowFetch: false },
   { key: "lancaster",   label: "Lancaster County",    short: "Lancaster",    slowFetch: false },
   { key: "padoc",       label: "PA State Prisons",    short: "PA DOC",       slowFetch: true  },
@@ -631,8 +630,7 @@ export default function App() {
   const facConfig = FACILITIES.find(f => f.key === activeFacility)!;
 
   const isYorkPrison = activeFacility === "york-prison";
-  const isAdams = activeFacility === "adams";
-  const isComingSoon = isYorkPrison || isAdams;
+  const isComingSoon = isYorkPrison;
   const isSlowFetch = FACILITIES.find(f => f.key === activeFacility)?.slowFetch ?? false;
 
   return (
@@ -649,7 +647,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · York · Adams · Dauphin · Lancaster · PA State
+              Live public data · York · Dauphin · Lancaster · PA State
             </p>
           </div>
         </div>
@@ -791,22 +789,18 @@ export default function App() {
               <line x1="24" y1="32" x2="24" y2="36" strokeWidth="2" strokeLinecap="round" />
             </svg>
             <div className="text-center">
-              <p className="font-semibold text-foreground text-base">
-                {isAdams ? "Adams County" : "York County Prison"} — Roster Coming Soon
-              </p>
+              <p className="font-semibold text-foreground text-base">York County Prison — Roster Coming Soon</p>
               <p className="text-sm mt-2 max-w-xs text-center leading-relaxed">
-                {isAdams
-                  ? "Adams County Adult Correctional Complex does not currently offer a public online inmate search."
-                  : "York County Prison has not yet launched a public online inmate search. The county's website states it is coming soon."}
+                York County Prison has not yet launched a public online inmate search. The county's website states it is coming soon.
               </p>
             </div>
             <a
-              href={isAdams ? "https://www.adamscountypa.gov/departments/adultcorrectioncomplex" : "https://yorkcountypa.gov/477/Prison"}
+              href="https://yorkcountypa.gov/477/Prison"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-primary hover:underline font-medium"
             >
-              {isAdams ? "Adams County Correctional Complex official page" : "York County Prison official page"} →
+              York County Prison official page →
             </a>
             <p className="text-xs text-muted-foreground/60 max-w-xs text-center">
               You will be notified automatically when the public roster becomes available.
