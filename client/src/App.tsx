@@ -67,6 +67,7 @@ const FACILITIES = [
   { key: "york-prison", label: "York County Prison",  short: "York Prison",  slowFetch: false },
   { key: "dauphin",     label: "Dauphin County",      short: "Dauphin",      slowFetch: false },
   { key: "lancaster",   label: "Lancaster County",    short: "Lancaster",    slowFetch: false },
+  { key: "adams-co",    label: "Adams County (CO)",   short: "Adams CO",     slowFetch: false },
   { key: "padoc",       label: "PA State Prisons",    short: "PA DOC",       slowFetch: true  },
 ];
 
@@ -647,7 +648,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · York · Dauphin · Lancaster · PA State
+              Live public data · York · Dauphin · Lancaster · Adams CO · PA State
             </p>
           </div>
         </div>

@@ -49,6 +49,11 @@ FACILITIES = {
         "url": "https://inmatesearch.lancastercountypa.gov",
         "type": "lancaster_atims",
     },
+    "adams-co": {
+        "name": "Adams County Sheriff (CO)",
+        "url": "https://adamssheriffco.gov/community/public-records/inmate-search/",
+        "type": "adams_sheriff",
+    },
     "padoc": {
         "name": "PA Dept. of Corrections (State Prisons)",
         "url": "https://inmatelocator.cor.pa.gov/#/",
@@ -633,10 +638,86 @@ def fetch_padoc(url: str, facility_name: str) -> list[dict]:
     return result_list
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Adams County Sheriff (CO) — adamssheriffco.gov
+# ─────────────────────────────────────────────────────────────────────────────
+
+ADAMS_URL = "https://adamssheriffco.gov/community/public-records/inmate-search/"
+
+
+def fetch_adams(url: str, facility_name: str) -> list[dict]:
+    """
+    Fetch all current Adams County (CO) Sheriff inmates.
+
+    The site requires at least one search field with 2+ chars (client-side only).
+    We sweep all 26 letters as last_name prefix and deduplicate by booking number.
+    Each inmate appears as multiple rows (one per charge); we take only the first.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import string
+
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Referer": "https://adamssheriffco.gov/inmate-services/",
+    }
+
+    def fetch_letter(letter: str) -> list[dict]:
+        try:
+            r = requests.get(
+                ADAMS_URL,
+                params={"last_name": letter, "first_name": ""},
+                headers=HEADERS,
+                timeout=20,
+            )
+            from bs4 import SoupStrainer
+            only_table = SoupStrainer("table", id="warrant-results-table")
+            soup = BeautifulSoup(r.text, "html.parser", parse_only=only_table)
+            table = soup.find("table")
+            if not table:
+                return []
+            tbody = table.find("tbody")
+            if not tbody:
+                return []
+            rows = tbody.find_all("tr")
+            results = []
+            for row in rows:
+                cells = row.find_all("td")
+                if len(cells) >= 5:
+                    results.append({
+                        "name": clean(cells[0].get_text(" ", strip=True)),
+                        "dob": clean(cells[1].get_text(strip=True)),
+                        "gender": clean(cells[2].get_text(strip=True))[:1].upper(),
+                        "booking_date": clean(cells[3].get_text(strip=True)),
+                        "booking_number": clean(cells[4].get_text(strip=True)),
+                        "facility": facility_name,
+                    })
+            return results
+        except Exception:
+            return []
+
+    all_inmates: dict[str, dict] = {}  # keyed by booking_number
+
+    # Server requires 2+ chars — sweep all 2-char last_name prefixes (aa..zz = 676 calls)
+    # 50 parallel workers completes in ~25 seconds
+    prefixes = [a + b for a in string.ascii_lowercase for b in string.ascii_lowercase]
+
+    with ThreadPoolExecutor(max_workers=50) as ex:
+        futs = {ex.submit(fetch_letter, prefix): prefix for prefix in prefixes}
+        for fut in as_completed(futs):
+            for rec in fut.result():
+                bnum = rec["booking_number"]
+                if bnum and bnum not in all_inmates:
+                    all_inmates[bnum] = rec
+
+    result_list = sorted(all_inmates.values(), key=lambda x: x.get("name", ""))
+    return result_list
+
+
 FETCHERS = {
     "york_aspnet": fetch_york,
     "dauphin_iml": fetch_dauphin,
     "lancaster_atims": fetch_lancaster,
+    "adams_sheriff": fetch_adams,
     "padoc_api": fetch_padoc,
 }
 
