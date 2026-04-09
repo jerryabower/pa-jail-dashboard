@@ -64,10 +64,11 @@ type ActiveView = "roster" | "delta";
 // ─── Facility config ──────────────────────────────────────────────────────────
 
 const FACILITIES = [
-  { key: "york-prison", label: "York County Prison",  short: "York Prison",  slowFetch: false },
-  { key: "dauphin",     label: "Dauphin County",      short: "Dauphin",      slowFetch: false },
-  { key: "lancaster",   label: "Lancaster County",    short: "Lancaster",    slowFetch: false },
-  { key: "padoc",       label: "PA State Prisons",    short: "PA DOC",       slowFetch: true  },
+  { key: "york-prison",  label: "York County Prison",   short: "York Prison",  slowFetch: false, comingSoon: true  },
+  { key: "dauphin",      label: "Dauphin County",        short: "Dauphin",      slowFetch: false, comingSoon: false },
+  { key: "lancaster",    label: "Lancaster County",      short: "Lancaster",    slowFetch: false, comingSoon: false },
+  { key: "allegheny",    label: "Allegheny County",      short: "Allegheny",    slowFetch: false, comingSoon: true  },
+  { key: "padoc",        label: "PA State Prisons",      short: "PA DOC",       slowFetch: true,  comingSoon: false },
 ];
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
@@ -627,11 +628,9 @@ export default function App() {
     ? new Date(dataUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : null;
 
-  const facConfig = FACILITIES.find(f => f.key === activeFacility)!;
-
-  const isYorkPrison = activeFacility === "york-prison";
-  const isComingSoon = isYorkPrison;
-  const isSlowFetch = FACILITIES.find(f => f.key === activeFacility)?.slowFetch ?? false;
+  const activeFac = FACILITIES.find(f => f.key === activeFacility)!
+  const isComingSoon = activeFac?.comingSoon ?? false;
+  const isSlowFetch = activeFac?.slowFetch ?? false;
 
   return (
     <div
@@ -647,7 +646,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · York · Dauphin · Lancaster · PA State
+              Live public data · York · Dauphin · Lancaster · Allegheny · PA State
             </p>
           </div>
         </div>
@@ -789,22 +788,26 @@ export default function App() {
               <line x1="24" y1="32" x2="24" y2="36" strokeWidth="2" strokeLinecap="round" />
             </svg>
             <div className="text-center">
-              <p className="font-semibold text-foreground text-base">York County Prison — Roster Coming Soon</p>
+              <p className="font-semibold text-foreground text-base">{activeFac?.label} — Roster Not Available</p>
               <p className="text-sm mt-2 max-w-xs text-center leading-relaxed">
-                York County Prison has not yet launched a public online inmate search. The county's website states it is coming soon.
+                {activeFacility === "york-prison"
+                  ? "York County Prison has not yet launched a public online inmate search. The county's website states it is coming soon."
+                  : "Allegheny County Jail does not offer a public online inmate roster. Inmate booking information is available by phone at 412-350-2000."}
               </p>
             </div>
             <a
-              href="https://yorkcountypa.gov/477/Prison"
+              href={activeFacility === "york-prison" ? "https://yorkcountypa.gov/477/Prison" : "https://www.alleghenycounty.us/Government/County-Jail/Inmate-Information"}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-primary hover:underline font-medium"
             >
-              York County Prison official page →
+              {activeFac?.label} official page →
             </a>
-            <p className="text-xs text-muted-foreground/60 max-w-xs text-center">
-              You will be notified automatically when the public roster becomes available.
-            </p>
+            {activeFacility === "york-prison" && (
+              <p className="text-xs text-muted-foreground/60 max-w-xs text-center">
+                You will be notified automatically when the public roster becomes available.
+              </p>
+            )}
           </div>
 
         ) : activeView === "delta" && !isComingSoon ? (
