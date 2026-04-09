@@ -49,10 +49,10 @@ FACILITIES = {
         "url": "https://inmatesearch.lancastercountypa.gov",
         "type": "lancaster_atims",
     },
-    "adams-co": {
-        "name": "Adams County Sheriff (CO)",
-        "url": "https://adamssheriffco.gov/community/public-records/inmate-search/",
-        "type": "adams_sheriff",
+    "crawford": {
+        "name": "Crawford County Correctional Facility",
+        "url": "https://www.crawfordcountypa.net/CCCF/Pages/Inmate-Lists.aspx",
+        "type": "crawford_pdf",
     },
     "padoc": {
         "name": "PA Dept. of Corrections (State Prisons)",
@@ -713,11 +713,75 @@ def fetch_adams(url: str, facility_name: str) -> list[dict]:
     return result_list
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Crawford County Correctional Facility — daily PDF roster
+# ─────────────────────────────────────────────────────────────────────────────
+
+CRAWFORD_PDF_URL = "https://www.crawfordcountypa.net/CCCF/InmateLists/inmate%20list.pdf"
+
+
+def fetch_crawford(url: str, facility_name: str) -> list[dict]:
+    """
+    Fetch Crawford County Correctional Facility inmate roster from their
+    daily-generated PDF. Fields: name, booking date, sentence end date.
+    No DOB or gender available from this source.
+    """
+    try:
+        import pdfplumber
+        import io
+    except ImportError:
+        raise RuntimeError("pdfplumber is required: pip install pdfplumber")
+
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    }
+
+    r = requests.get(CRAWFORD_PDF_URL, headers=HEADERS, timeout=30)
+    r.raise_for_status()
+
+    inmates = []
+    seen = set()
+
+    with pdfplumber.open(io.BytesIO(r.content)) as pdf:
+        for page in pdf.pages:
+            tables = page.extract_tables()
+            for table in tables:
+                for row in table:
+                    if not row or len(row) < 2:
+                        continue
+                    name_raw = clean(row[0] or "")
+                    booking_raw = clean(row[1] or "")
+                    sentence_end = clean(row[2] or "") if len(row) > 2 else ""
+
+                    # Skip header rows and empty rows
+                    if not name_raw or name_raw.lower() in ("inmate's name", "name", ""):
+                        continue
+                    if not booking_raw or not any(c.isdigit() for c in booking_raw):
+                        continue
+                    # Skip "Nmn" suffix (no middle name) — keep as is
+                    # Deduplicate
+                    key = f"{name_raw}|{booking_raw}"
+                    if key in seen:
+                        continue
+                    seen.add(key)
+
+                    inmates.append({
+                        "name": name_raw,
+                        "dob": "",
+                        "gender": "",
+                        "booking_number": booking_raw,  # booking date used as ID
+                        "facility": facility_name,
+                    })
+
+    return sorted(inmates, key=lambda x: x["name"])
+
+
 FETCHERS = {
     "york_aspnet": fetch_york,
     "dauphin_iml": fetch_dauphin,
     "lancaster_atims": fetch_lancaster,
     "adams_sheriff": fetch_adams,
+    "crawford_pdf": fetch_crawford,
     "padoc_api": fetch_padoc,
 }
 

@@ -67,6 +67,7 @@ const FACILITIES = [
   { key: "york-prison",  label: "York County Prison",   short: "York Prison",  slowFetch: false, comingSoon: true  },
   { key: "dauphin",      label: "Dauphin County",        short: "Dauphin",      slowFetch: false, comingSoon: false },
   { key: "lancaster",    label: "Lancaster County",      short: "Lancaster",    slowFetch: false, comingSoon: false },
+  { key: "crawford",     label: "Crawford County",       short: "Crawford",     slowFetch: false, comingSoon: false },
   { key: "padoc",        label: "PA State Prisons",      short: "PA DOC",       slowFetch: true,  comingSoon: false },
 ];
 
@@ -122,10 +123,10 @@ function SortHeader({
 // ─── Roster table ─────────────────────────────────────────────────────────────
 
 function RosterTable({
-  inmates, sortKey, sortDir, onSort, query
+  inmates, sortKey, sortDir, onSort, query, facilityKey
 }: {
   inmates: Inmate[]; sortKey: SortKey; sortDir: SortDir;
-  onSort: (k: SortKey) => void; query: string;
+  onSort: (k: SortKey) => void; query: string; facilityKey?: string;
 }) {
   const highlight = (text: string) => {
     if (!query) return text;
@@ -167,7 +168,7 @@ function RosterTable({
               <SortHeader label="Sex" sortKey="gender" currentKey={sortKey} dir={sortDir} onSort={onSort} />
             </th>
             <th className="px-3 py-3 w-44">
-              <SortHeader label="Booking #" sortKey="bookingNumber" currentKey={sortKey} dir={sortDir} onSort={onSort} />
+              <SortHeader label={facilityKey === "crawford" ? "Booking Date" : "Booking #"} sortKey="bookingNumber" currentKey={sortKey} dir={sortDir} onSort={onSort} />
             </th>
             <th className="pr-4 px-3 py-3">
               <span className="uppercase tracking-wider text-[11px] font-semibold text-muted-foreground">Facility</span>
@@ -645,7 +646,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · York · Dauphin · Lancaster · PA State
+              Live public data · York · Dauphin · Lancaster · Crawford · PA State
             </p>
           </div>
         </div>
@@ -839,6 +840,7 @@ export default function App() {
             sortDir={sortDir}
             onSort={handleSort}
             query={query}
+            facilityKey={activeFacility}
           />
         )}
       </main>
