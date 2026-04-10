@@ -68,6 +68,7 @@ const FACILITIES = [
   { key: "dauphin",      label: "Dauphin County",        short: "Dauphin",      slowFetch: false, comingSoon: false },
   { key: "lancaster",    label: "Lancaster County",      short: "Lancaster",    slowFetch: false, comingSoon: false },
   { key: "crawford",     label: "Crawford County",       short: "Crawford",     slowFetch: false, comingSoon: false },
+  { key: "cumberland",   label: "Cumberland County",     short: "Cumberland",   slowFetch: false, comingSoon: false },
   { key: "padoc",        label: "PA State Prisons",      short: "PA DOC",       slowFetch: true,  comingSoon: false },
 ];
 
@@ -646,7 +647,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · York · Dauphin · Lancaster · Crawford · PA State
+              Live public data · York · Dauphin · Lancaster · Crawford · Cumberland · PA State
             </p>
           </div>
         </div>

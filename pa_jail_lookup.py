@@ -54,6 +54,11 @@ FACILITIES = {
         "url": "https://www.crawfordcountypa.net/CCCF/Pages/Inmate-Lists.aspx",
         "type": "crawford_pdf",
     },
+    "cumberland": {
+        "name": "Cumberland County Prison",
+        "url": "https://ccweb.ccpa.net/inmatelisting/",
+        "type": "cumberland_html",
+    },
     "padoc": {
         "name": "PA Dept. of Corrections (State Prisons)",
         "url": "https://inmatelocator.cor.pa.gov/#/",
@@ -776,12 +781,51 @@ def fetch_crawford(url: str, facility_name: str) -> list[dict]:
     return sorted(inmates, key=lambda x: x["name"])
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Cumberland County Prison — static HTML list
+# ─────────────────────────────────────────────────────────────────────────────
+
+CUMBERLAND_URL = "https://ccweb.ccpa.net/inmatelisting/"
+
+
+def fetch_cumberland(url: str, facility_name: str) -> list[dict]:
+    """
+    Fetch Cumberland County Prison inmate list.
+    Page is a plain HTML <ul>/<li> list of names (LAST, FIRST MIDDLE).
+    No DOB, gender, or booking number available.
+    """
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    }
+    r = requests.get(CUMBERLAND_URL, headers=HEADERS, timeout=20)
+    r.raise_for_status()
+
+    soup = BeautifulSoup(r.text, "html.parser")
+    items = soup.find_all("li")
+
+    inmates = []
+    for idx, item in enumerate(items, 1):
+        name_raw = clean(item.get_text(strip=True))
+        if not name_raw or "," not in name_raw:
+            continue
+        inmates.append({
+            "name": name_raw,
+            "dob": "",
+            "gender": "",
+            "booking_number": "",
+            "facility": facility_name,
+        })
+
+    return sorted(inmates, key=lambda x: x["name"])
+
+
 FETCHERS = {
     "york_aspnet": fetch_york,
     "dauphin_iml": fetch_dauphin,
     "lancaster_atims": fetch_lancaster,
     "adams_sheriff": fetch_adams,
     "crawford_pdf": fetch_crawford,
+    "cumberland_html": fetch_cumberland,
     "padoc_api": fetch_padoc,
 }
 
