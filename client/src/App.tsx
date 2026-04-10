@@ -64,11 +64,11 @@ type ActiveView = "roster" | "delta";
 // ─── Facility config ──────────────────────────────────────────────────────────
 
 const FACILITIES = [
-  { key: "york-prison",  label: "York County Prison",   short: "York Prison",  slowFetch: false, comingSoon: true  },
-  { key: "dauphin",      label: "Dauphin County",        short: "Dauphin",      slowFetch: false, comingSoon: false },
-  { key: "lancaster",    label: "Lancaster County",      short: "Lancaster",    slowFetch: false, comingSoon: false },
   { key: "crawford",     label: "Crawford County",       short: "Crawford",     slowFetch: false, comingSoon: false },
   { key: "cumberland",   label: "Cumberland County",     short: "Cumberland",   slowFetch: false, comingSoon: false },
+  { key: "dauphin",      label: "Dauphin County",        short: "Dauphin",      slowFetch: false, comingSoon: false },
+  { key: "lancaster",    label: "Lancaster County",      short: "Lancaster",    slowFetch: false, comingSoon: false },
+  { key: "york-prison",  label: "York County Prison",   short: "York Prison",  slowFetch: false, comingSoon: true  },
   { key: "padoc",        label: "PA State Prisons",      short: "PA DOC",       slowFetch: true,  comingSoon: false },
 ];
 
@@ -575,7 +575,7 @@ function exportCSV(inmates: Inmate[], facilityKey: string) {
 // ─── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [activeFacility, setActiveFacility] = useState("york-prison");
+  const [activeFacility, setActiveFacility] = useState("crawford");
   const [activeView, setActiveView] = useState<ActiveView>("roster");
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
