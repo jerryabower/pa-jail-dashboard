@@ -68,7 +68,6 @@ const FACILITIES = [
   { key: "cumberland",    label: "Cumberland County",     short: "Cumberland",  slowFetch: false, comingSoon: false },
   { key: "dauphin",       label: "Dauphin County",        short: "Dauphin",     slowFetch: false, comingSoon: false },
   { key: "lancaster",     label: "Lancaster County",      short: "Lancaster",   slowFetch: false, comingSoon: false },
-  { key: "luzerne",       label: "Luzerne County",        short: "Luzerne",     slowFetch: false, comingSoon: false },
   { key: "westmoreland",  label: "Westmoreland County",   short: "Westmoreland",slowFetch: false, comingSoon: false },
   { key: "york-prison",   label: "York County Prison",    short: "York Prison", slowFetch: false, comingSoon: true  },
   { key: "padoc",         label: "PA State Prisons",      short: "PA DOC",      slowFetch: true,  comingSoon: false },
@@ -649,7 +648,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · Crawford · Cumberland · Dauphin · Lancaster · Luzerne · Westmoreland · York · PA State
+              Live public data · Crawford · Cumberland · Dauphin · Lancaster · Westmoreland · York · PA State
             </p>
           </div>
         </div>
