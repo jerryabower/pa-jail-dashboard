@@ -7,3 +7,7 @@ healthcheckPath = "/api/roster/york-prison"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+
+[[deploy.volumes]]
+mountPath = "/data"
+
