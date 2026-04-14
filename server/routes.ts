@@ -254,7 +254,7 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
-  const ALLOWED = ["york", "york-prison", "dauphin", "lancaster", "crawford", "cumberland", "padoc"];
+  const ALLOWED = ["york", "york-prison", "dauphin", "lancaster", "crawford", "cumberland", "westmoreland", "padoc"];
 
   // GET /api/roster/:facility — live roster
   app.get("/api/roster/:facility", async (req, res) => {

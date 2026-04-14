@@ -59,6 +59,11 @@ FACILITIES = {
         "url": "https://ccweb.ccpa.net/inmatelisting/",
         "type": "cumberland_html",
     },
+    "westmoreland": {
+        "name": "Westmoreland County Prison",
+        "url": "https://apps.westmorelandcountypa.gov/prison/PrisonInmates/PRISON_INMATES.ASP",
+        "type": "westmoreland_asp",
+    },
     "padoc": {
         "name": "PA Dept. of Corrections (State Prisons)",
         "url": "https://inmatelocator.cor.pa.gov/#/",
@@ -819,6 +824,60 @@ def fetch_cumberland(url: str, facility_name: str) -> list[dict]:
     return sorted(inmates, key=lambda x: x["name"])
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Westmoreland County Prison — ASP HTML table
+# ─────────────────────────────────────────────────────────────────────────────
+
+WESTMORELAND_URL = "https://apps.westmorelandcountypa.gov/prison/PrisonInmates/PRISON_INMATES.ASP"
+
+
+def fetch_westmoreland(url: str, facility_name: str) -> list[dict]:
+    """
+    Fetch Westmoreland County Prison inmates from their ASP roster page.
+    Single GET with lname=All returns all ~640 inmates in one HTML table.
+    Fields: name, DOB, booking number, commitment date, unit.
+    """
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    }
+    r = requests.get(WESTMORELAND_URL, params={"lname": "All"}, headers=HEADERS, timeout=20)
+    r.raise_for_status()
+
+    soup = BeautifulSoup(r.text, "html.parser")
+    table = soup.find("table")
+    if not table:
+        return []
+
+    inmates = []
+    header_skipped = False
+    for row in table.find_all("tr"):
+        cells = row.find_all("td")
+        if len(cells) < 3:
+            continue
+        name_raw = clean(cells[0].get_text(strip=True))
+        dob_raw  = clean(cells[1].get_text(strip=True))
+        bnum_raw = clean(cells[2].get_text(strip=True))
+
+        # Skip header rows
+        if name_raw.lower() in ("name", "") or "last name" in name_raw.lower():
+            continue
+        if not name_raw or "," not in name_raw:
+            continue
+        # Skip rows with no digits in booking number
+        if not any(c.isdigit() for c in bnum_raw):
+            continue
+
+        inmates.append({
+            "name": name_raw,
+            "dob": dob_raw,
+            "gender": "",  # not provided
+            "booking_number": bnum_raw,
+            "facility": facility_name,
+        })
+
+    return sorted(inmates, key=lambda x: x["name"])
+
+
 FETCHERS = {
     "york_aspnet": fetch_york,
     "dauphin_iml": fetch_dauphin,
@@ -826,6 +885,7 @@ FETCHERS = {
     "adams_sheriff": fetch_adams,
     "crawford_pdf": fetch_crawford,
     "cumberland_html": fetch_cumberland,
+    "westmoreland_asp": fetch_westmoreland,
     "padoc_api": fetch_padoc,
 }
 
