@@ -64,6 +64,12 @@ FACILITIES = {
         "url": "https://apps.westmorelandcountypa.gov/prison/PrisonInmates/PRISON_INMATES.ASP",
         "type": "westmoreland_asp",
     },
+    "luzerne": {
+        "name": "Luzerne County (PA DOC)",
+        "url": "https://inmatelocator.cor.pa.gov/#/",
+        "type": "padoc_county",
+        "county_id": "LUZ",
+    },
     "padoc": {
         "name": "PA Dept. of Corrections (State Prisons)",
         "url": "https://inmatelocator.cor.pa.gov/#/",
@@ -878,6 +884,53 @@ def fetch_westmoreland(url: str, facility_name: str) -> list[dict]:
     return sorted(inmates, key=lambda x: x["name"])
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  PA DOC county-filtered fetch (reusable for any county)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def fetch_padoc_county(url: str, facility_name: str, county_id: str = "---") -> list[dict]:
+    """
+    Fetch PA DOC inmates filtered by county of commitment.
+    Uses sex + last-name-letter splitting to handle the 500-record cap.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import string
+
+    session = requests.Session()
+    session.verify = False
+    all_inmates: dict = {}
+
+    def search(sex: str = "---", last: str = "") -> list[dict]:
+        try:
+            payload = {
+                "id": "", "firstName": "", "lastName": last, "middleName": "",
+                "paroleNumber": "", "countylistkey": county_id, "citizenlistkey": "---",
+                "sexlistkey": sex, "locationlistkey": "---",
+                "age": "", "dateofbirth": None, "sortBy": "1"
+            }
+            r = session.post(PADOC_API, json=payload, headers=PADOC_HEADERS, timeout=30)
+            r.raise_for_status()
+            return r.json().get("inmates", [])
+        except Exception:
+            return []
+
+    # Step 1: try both sexes at county level
+    for sex in ["M", "F"]:
+        results = search(sex)
+        if len(results) == 500:
+            # Split by first letter of last name
+            with ThreadPoolExecutor(max_workers=26) as ex:
+                futs = {ex.submit(search, sex, letter): letter for letter in string.ascii_uppercase}
+                for fut in as_completed(futs):
+                    for rec in fut.result():
+                        _padoc_add_results(all_inmates, [rec], sex_override=sex)
+        else:
+            _padoc_add_results(all_inmates, results, sex_override=sex)
+
+    result_list = sorted(all_inmates.values(), key=lambda x: x.get("name", ""))
+    return result_list
+
+
 FETCHERS = {
     "york_aspnet": fetch_york,
     "dauphin_iml": fetch_dauphin,
@@ -886,6 +939,7 @@ FETCHERS = {
     "crawford_pdf": fetch_crawford,
     "cumberland_html": fetch_cumberland,
     "westmoreland_asp": fetch_westmoreland,
+    "padoc_county": fetch_padoc_county,
     "padoc_api": fetch_padoc,
 }
 
@@ -902,6 +956,9 @@ def fetch_roster(facility_key: str) -> list[dict]:
         return []
 
     try:
+        # Pass county_id for padoc_county type facilities
+        if fac["type"] == "padoc_county":
+            return fn(fac["url"], fac["name"], county_id=fac.get("county_id", "---"))
         return fn(fac["url"], fac["name"])
     except requests.exceptions.ConnectionError as e:
         print(f"  [ERROR] Connection failed: {e}")
