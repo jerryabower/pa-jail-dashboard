@@ -559,16 +559,17 @@ function exportDeltaCSV(inmates: Inmate[], variant: "added" | "released", facili
 }
 
 function exportCSV(inmates: Inmate[], facilityKey: string) {
-  const headers = ["#", "Name", "DOB/Age", "Sex", "Booking Number", "Facility"];
-  const rows = inmates.map(i => [
-    i.id, `"${i.name}"`, i.ageDob, i.gender, i.bookingNumber, `"${i.facility}"`
+  const bookingHeader = facilityKey === "crawford" ? "Booking Date" : "Booking Number";
+  const headers = ["#", "Name", "DOB/Age", "Sex", bookingHeader, "Facility"];
+  const rows = inmates.map((i, idx) => [
+    idx + 1, `"${i.name}"`, i.ageDob || "", i.gender || "", i.bookingNumber || "", `"${i.facility || ""}"`
   ]);
   const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${facilityKey}-roster-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `${facilityKey}-roster-${new Date().toISOString().slice(0, 10)}-${inmates.length}inmates.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -659,17 +660,17 @@ export default function App() {
               Updated {lastUpdated}
             </span>
           )}
-          {activeView === "roster" && (
+          {activeView === "roster" && !isComingSoon && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => exportCSV(filtered, activeFacility)}
-              disabled={isLoading || !data?.inmates?.length || isComingSoon}
+              disabled={isLoading || !filtered.length}
               data-testid="button-export"
               className="text-xs gap-1.5 h-8"
             >
               <Download className="w-3.5 h-3.5" />
-              Export CSV
+              {query ? `Export CSV (${filtered.length})` : "Export CSV"}
             </Button>
           )}
           {activeView === "roster" && !isComingSoon && (
