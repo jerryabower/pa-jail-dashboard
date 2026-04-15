@@ -59,6 +59,11 @@ FACILITIES = {
         "url": "https://ccweb.ccpa.net/inmatelisting/",
         "type": "cumberland_html",
     },
+    "mercer": {
+        "name": "Mercer County Jail",
+        "url": "https://www.mercercountypa.gov/jail/jailreport/Alphabetical.cfm",
+        "type": "mercer_cfm",
+    },
     "westmoreland": {
         "name": "Westmoreland County Prison",
         "url": "https://apps.westmorelandcountypa.gov/prison/PrisonInmates/PRISON_INMATES.ASP",
@@ -931,6 +936,73 @@ def fetch_padoc_county(url: str, facility_name: str, county_id: str = "---") -> 
     return result_list
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Mercer County Jail — ColdFusion HTML tables
+# ─────────────────────────────────────────────────────────────────────────────
+
+MERCER_URL = "https://www.mercercountypa.gov/jail/jailreport/Alphabetical.cfm"
+
+
+def fetch_mercer(url: str, facility_name: str) -> list[dict]:
+    """
+    Fetch Mercer County Jail roster from their ColdFusion alphabetical report.
+    Page has three separate HTML tables: MALES, FEMALES, TRANSFERS.
+    Gender is derived from which table the inmate appears in.
+    Fields: name, commit date (used as booking date), admission type.
+    No DOB or booking number available.
+    """
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    }
+    r = requests.get(MERCER_URL, headers=HEADERS, timeout=20)
+    r.raise_for_status()
+
+    soup = BeautifulSoup(r.text, "html.parser")
+    tables = soup.find_all("table")
+
+    inmates = []
+
+    for table in tables:
+        # Find preceding heading label (h4 sibling is most reliable)
+        prev_sib = table.find_previous_sibling()
+        label = (prev_sib.get_text(strip=True) if prev_sib else "").lower()
+        # Check females BEFORE males to avoid substring match ("males" in "females")
+        if "females" in label:
+            gender = "F"
+        elif "males" in label:
+            gender = "M"
+        else:
+            gender = ""
+
+        rows = table.find_all("tr")
+        for row in rows:
+            cells = row.find_all("td")
+            if len(cells) < 2:
+                continue
+            name_raw = clean(cells[0].get_text(strip=True))
+            commit_raw = clean(cells[1].get_text(strip=True))
+
+            # Skip header and empty rows
+            if not name_raw or name_raw.lower() == "name":
+                continue
+            # Name format is "LAST FIRST" — convert to "Last, First"
+            parts = name_raw.split()
+            if len(parts) >= 2:
+                name_fmt = f"{parts[0].capitalize()}, {' '.join(p.capitalize() for p in parts[1:])}"
+            else:
+                name_fmt = name_raw.title()
+
+            inmates.append({
+                "name": name_fmt,
+                "dob": "",
+                "gender": gender,
+                "booking_number": commit_raw,  # commit date used as booking ref
+                "facility": facility_name,
+            })
+
+    return sorted(inmates, key=lambda x: x["name"])
+
+
 FETCHERS = {
     "york_aspnet": fetch_york,
     "dauphin_iml": fetch_dauphin,
@@ -938,6 +1010,7 @@ FETCHERS = {
     "adams_sheriff": fetch_adams,
     "crawford_pdf": fetch_crawford,
     "cumberland_html": fetch_cumberland,
+    "mercer_cfm": fetch_mercer,
     "westmoreland_asp": fetch_westmoreland,
     "padoc_county": fetch_padoc_county,
     "padoc_api": fetch_padoc,
