@@ -4,6 +4,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import path from "path";
 import fs from "fs";
+import https from "https";
 
 const execAsync = promisify(exec);
 
@@ -260,6 +261,48 @@ export async function registerRoutes(
 ): Promise<Server> {
 
   const ALLOWED = ["york", "york-prison", "dauphin", "lancaster", "crawford", "cumberland", "mercer", "westmoreland", "padoc"];
+
+  // ── Philadelphia County search passthrough ──────────────────────────────
+  const PHILA_KEY = "685088e7b4ef77cffb263b1349bc6583";
+  const PHILA_BASE = "https://api.phila.gov/inmate-locator";
+  const PHILA_FAC: Record<string, string> = {
+    PICC:  "Philadelphia Industrial Correctional Center",
+    RCF:   "Riverside Correctional Facility",
+    DC:    "Detention Center",
+    CFCF:  "Curran-Fromhold Correctional Facility",
+    ASDCU: "Alternative and Special Detention",
+    OJ:    "Location Unavailable (call 215-686-5600)",
+  };
+
+  app.get("/api/phila/search", async (req, res) => {
+    const { firstName, lastName } = req.query as Record<string, string>;
+    if (!firstName?.trim() || !lastName?.trim()) {
+      return res.status(400).json({ error: "Both first name and last name are required." });
+    }
+    try {
+      const url = `${PHILA_BASE}/inmates/?gatekeeperKey=${PHILA_KEY}&FirstName=${encodeURIComponent(firstName.trim())}&LastName=${encodeURIComponent(lastName.trim())}`;
+      const response = await fetch(url);
+      if (response.status === 429) {
+        return res.status(429).json({ error: "Philadelphia API rate limit reached. Please try again in a few minutes." });
+      }
+      if (response.status === 404) {
+        return res.json({ results: [], message: "No matching inmates found." });
+      }
+      const data = await response.json();
+      // Normalise to array
+      const raw: any[] = Array.isArray(data) ? data : (data.inmates ?? []);
+      const results = raw.map((r: any) => ({
+        name: `${(r.lastName || "").trim()}, ${(r.firstName || "").trim()}`,
+        ppn:  (r.ppn || r.PPN || "").toString(),
+        location: r.location || "",
+        facilityName: PHILA_FAC[r.location] ?? r.location ?? "Unknown",
+        lastUpdated: r.lastUpdated || "",
+      }));
+      res.json({ results, count: results.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Search failed" });
+    }
+  });
 
   // GET /api/roster/:facility — live roster
   app.get("/api/roster/:facility", async (req, res) => {

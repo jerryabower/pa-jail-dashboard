@@ -64,14 +64,15 @@ type ActiveView = "roster" | "delta";
 // ─── Facility config ──────────────────────────────────────────────────────────
 
 const FACILITIES = [
-  { key: "crawford",      label: "Crawford County",       short: "Crawford",    slowFetch: false, comingSoon: false },
-  { key: "cumberland",    label: "Cumberland County",     short: "Cumberland",  slowFetch: false, comingSoon: false },
-  { key: "dauphin",       label: "Dauphin County",        short: "Dauphin",     slowFetch: false, comingSoon: false },
-  { key: "lancaster",     label: "Lancaster County",      short: "Lancaster",   slowFetch: false, comingSoon: false },
-  { key: "mercer",        label: "Mercer County",         short: "Mercer",      slowFetch: false, comingSoon: false },
-  { key: "westmoreland",  label: "Westmoreland County",   short: "Westmoreland",slowFetch: false, comingSoon: false },
-  { key: "york-prison",   label: "York County Prison",    short: "York Prison", slowFetch: false, comingSoon: true  },
-  { key: "padoc",         label: "PA State Prisons",      short: "PA DOC",      slowFetch: true,  comingSoon: false },
+  { key: "crawford",      label: "Crawford County",       short: "Crawford",    slowFetch: false, comingSoon: false, searchOnly: false },
+  { key: "cumberland",    label: "Cumberland County",     short: "Cumberland",  slowFetch: false, comingSoon: false, searchOnly: false },
+  { key: "dauphin",       label: "Dauphin County",        short: "Dauphin",     slowFetch: false, comingSoon: false, searchOnly: false },
+  { key: "lancaster",     label: "Lancaster County",      short: "Lancaster",   slowFetch: false, comingSoon: false, searchOnly: false },
+  { key: "mercer",        label: "Mercer County",         short: "Mercer",      slowFetch: false, comingSoon: false, searchOnly: false },
+  { key: "philadelphia",  label: "Philadelphia County",   short: "Philadelphia",slowFetch: false, comingSoon: false, searchOnly: true  },
+  { key: "westmoreland",  label: "Westmoreland County",   short: "Westmoreland",slowFetch: false, comingSoon: false, searchOnly: false },
+  { key: "york-prison",   label: "York County Prison",    short: "York Prison", slowFetch: false, comingSoon: true,  searchOnly: false },
+  { key: "padoc",         label: "PA State Prisons",      short: "PA DOC",      slowFetch: true,  comingSoon: false, searchOnly: false },
 ];
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
@@ -575,6 +576,155 @@ function exportCSV(inmates: Inmate[], facilityKey: string) {
   URL.revokeObjectURL(url);
 }
 
+// ─── Philadelphia Search Panel ──────────────────────────────────────────────────
+
+interface PhilaResult {
+  name: string;
+  ppn: string;
+  location: string;
+  facilityName: string;
+  lastUpdated: string;
+}
+
+function PhillySearchPanel() {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName]   = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [results, setResults]     = useState<PhilaResult[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [error, setError]         = useState("");
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firstName.trim() || !lastName.trim()) return;
+    setSearching(true);
+    setError("");
+    setResults(null);
+    setSubmitted(true);
+    try {
+      const r = await apiRequest("GET", `/api/phila/search?firstName=${encodeURIComponent(firstName.trim())}&lastName=${encodeURIComponent(lastName.trim())}`);
+      const data = await r.json();
+      if (data.error) {
+        setError(data.error);
+      } else {
+        setResults(data.results ?? []);
+      }
+    } catch {
+      setError("Search failed. Please try again.");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const fmtDate = (iso: string) => {
+    if (!iso) return "";
+    try { return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }); }
+    catch { return iso; }
+  };
+
+  return (
+    <div className="flex flex-col h-full overflow-y-auto p-4 max-w-2xl mx-auto w-full">
+      {/* Header */}
+      <div className="mb-5">
+        <div className="flex items-center gap-2 mb-1">
+          <Building2 className="w-4 h-4 text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">Philadelphia County Jails — Inmate Search</h2>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Search by name across all Philadelphia Department of Prisons facilities.
+          Both first and last name are required.
+        </p>
+      </div>
+
+      {/* Search form */}
+      <form onSubmit={handleSearch} className="flex flex-col gap-3 mb-6">
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1 block">First Name</label>
+            <Input
+              value={firstName}
+              onChange={e => setFirstName(e.target.value)}
+              placeholder="e.g. John"
+              data-testid="phila-input-firstname"
+              className="h-9 text-sm bg-background border-border focus:border-primary"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1 block">Last Name</label>
+            <Input
+              value={lastName}
+              onChange={e => setLastName(e.target.value)}
+              placeholder="e.g. Smith"
+              data-testid="phila-input-lastname"
+              className="h-9 text-sm bg-background border-border focus:border-primary"
+            />
+          </div>
+        </div>
+        <button
+          type="submit"
+          disabled={searching || !firstName.trim() || !lastName.trim()}
+          data-testid="phila-button-search"
+          className="flex items-center justify-center gap-2 px-4 py-2 rounded bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <Search className={`w-4 h-4 ${searching ? "animate-spin" : ""}`} />
+          {searching ? "Searching…" : "Search"}
+        </button>
+      </form>
+
+      {/* Results */}
+      {error && (
+        <div className="flex items-start gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/10 text-sm text-destructive">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          {error}
+        </div>
+      )}
+
+      {submitted && !searching && !error && results !== null && (
+        results.length === 0 ? (
+          <div className="flex flex-col items-center py-12 gap-3 text-muted-foreground">
+            <Search className="w-8 h-8 opacity-30" />
+            <p className="text-sm">No inmates found matching <strong className="text-foreground">{firstName} {lastName}</strong>.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              {results.length} result{results.length !== 1 ? "s" : ""} for <strong className="text-foreground">{firstName} {lastName}</strong>
+            </p>
+            {results.map((r, i) => (
+              <div key={i} className="rounded-lg border border-border bg-card p-4 space-y-2" data-testid={`phila-result-${i}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold text-foreground text-sm">{r.name}</p>
+                  <Badge variant="secondary" className="text-[10px] bg-primary/15 text-primary border-0 shrink-0">
+                    PPN: {r.ppn}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Building2 className="w-3 h-3" />
+                  <span>{r.facilityName}</span>
+                </div>
+                {r.lastUpdated && (
+                  <p className="text-[11px] text-muted-foreground/60">
+                    Data as of {fmtDate(r.lastUpdated)}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {/* Footer note */}
+      <p className="mt-6 text-[11px] text-muted-foreground/50 text-center leading-relaxed">
+        Data provided by{" "}
+        <a href="https://incarceratedperson-locator.phila.gov/#/" target="_blank" rel="noopener noreferrer" className="underline hover:text-muted-foreground">
+          Philadelphia Department of Prisons
+        </a>.
+        For full details call 215-686-5600.
+      </p>
+    </div>
+  );
+}
+
 // ─── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -633,8 +783,9 @@ export default function App() {
     : null;
 
   const activeFac = FACILITIES.find(f => f.key === activeFacility)!
-  const isComingSoon = activeFac?.comingSoon ?? false;
-  const isSlowFetch = activeFac?.slowFetch ?? false;
+  const isComingSoon  = activeFac?.comingSoon  ?? false;
+  const isSlowFetch   = activeFac?.slowFetch   ?? false;
+  const isSearchOnly  = activeFac?.searchOnly  ?? false;
 
   return (
     <div
@@ -650,7 +801,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · Crawford · Cumberland · Dauphin · Lancaster · Mercer · Westmoreland · York · PA State
+              Live public data · Crawford · Cumberland · Dauphin · Lancaster · Mercer · Philadelphia · Westmoreland · York · PA State
             </p>
           </div>
         </div>
@@ -661,7 +812,7 @@ export default function App() {
               Updated {lastUpdated}
             </span>
           )}
-          {activeView === "roster" && !isComingSoon && (
+          {activeView === "roster" && !isComingSoon && !isSearchOnly && (
             <Button
               variant="outline"
               size="sm"
@@ -674,7 +825,7 @@ export default function App() {
               {query ? `Export CSV (${filtered.length})` : "Export CSV"}
             </Button>
           )}
-          {activeView === "roster" && !isComingSoon && (
+          {activeView === "roster" && !isComingSoon && !isSearchOnly && (
             <Button
               variant="outline"
               size="sm"
@@ -717,8 +868,8 @@ export default function App() {
         ))}
       </nav>
 
-      {/* ── View toggle (Roster / Delta) — only for live facilities ── */}
-      {!isComingSoon && (
+      {/* ── View toggle (Roster / Delta) — only for live roster facilities ── */}
+      {!isComingSoon && !isSearchOnly && (
         <div className="shrink-0 flex border-b border-border bg-background">
           <button
             onClick={() => setActiveView("roster")}
@@ -748,7 +899,7 @@ export default function App() {
       )}
 
       {/* ── Toolbar (roster view only) ───────────────────────────────── */}
-      {activeView === "roster" && !isComingSoon && (
+      {activeView === "roster" && !isComingSoon && !isSearchOnly && (
         <div className="shrink-0 flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -783,7 +934,10 @@ export default function App() {
       <main className="flex-1 overflow-y-auto overscroll-contain bg-background">
 
         {/* Coming soon facilities */}
-        {isComingSoon && activeView !== "delta" ? (
+        {isSearchOnly ? (
+          <PhillySearchPanel />
+
+        ) : isComingSoon && activeView !== "delta" ? (
           <div className="flex flex-col items-center justify-center py-20 gap-5 text-muted-foreground">
             <svg viewBox="0 0 48 48" fill="none" className="w-12 h-12 text-primary/40" stroke="currentColor" strokeWidth="1.5">
               <rect x="8" y="16" width="32" height="26" rx="2" />
@@ -814,7 +968,7 @@ export default function App() {
             )}
           </div>
 
-        ) : activeView === "delta" && !isComingSoon ? (
+        ) : activeView === "delta" && !isComingSoon && !isSearchOnly ? (
           <DeltaPanel facility={activeFacility} />
 
         ) : (isLoading || (data?.fetching && data?.inmates?.length === 0)) ? (
