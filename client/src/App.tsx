@@ -64,16 +64,17 @@ type ActiveView = "roster" | "delta";
 // ─── Facility config ──────────────────────────────────────────────────────────
 
 const FACILITIES = [
-  { key: "crawford",      label: "Crawford County",       short: "Crawford",    slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false },
-  { key: "cumberland",    label: "Cumberland County",     short: "Cumberland",  slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false },
-  { key: "dauphin",       label: "Dauphin County",        short: "Dauphin",     slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false },
-  { key: "lancaster",     label: "Lancaster County",      short: "Lancaster",   slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false },
-  { key: "mercer",        label: "Mercer County",         short: "Mercer",      slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false },
-  { key: "philadelphia",  label: "Philadelphia County",   short: "Philadelphia",slowFetch: false, comingSoon: false, searchOnly: true,  gettingOut: false },
-  { key: "westmoreland",  label: "Westmoreland County",   short: "Westmoreland",slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false },
-  { key: "york-prison",   label: "York County Prison",    short: "York Prison", slowFetch: false, comingSoon: true,  searchOnly: false, gettingOut: false },
-  { key: "padoc",         label: "PA State Prisons",      short: "PA DOC",      slowFetch: true,  comingSoon: false, searchOnly: false, gettingOut: false },
-  { key: "gettingout",    label: "GettingOut Contacts",   short: "GettingOut",  slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: true  },
+  { key: "crawford",      label: "Crawford County",       short: "Crawford",    slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
+  { key: "cumberland",    label: "Cumberland County",     short: "Cumberland",  slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
+  { key: "dauphin",       label: "Dauphin County",        short: "Dauphin",     slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
+  { key: "lancaster",     label: "Lancaster County",      short: "Lancaster",   slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
+  { key: "mercer",        label: "Mercer County",         short: "Mercer",      slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
+  { key: "philadelphia",  label: "Philadelphia County",   short: "Philadelphia",slowFetch: false, comingSoon: false, searchOnly: true,  gettingOut: false, yorkGo: false },
+  { key: "westmoreland",  label: "Westmoreland County",   short: "Westmoreland",slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
+  { key: "york-prison",   label: "York County Prison",    short: "York Prison", slowFetch: false, comingSoon: true,  searchOnly: false, gettingOut: false, yorkGo: false },
+  { key: "padoc",         label: "PA State Prisons",      short: "PA DOC",      slowFetch: true,  comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
+  { key: "gettingout",       label: "GettingOut Contacts",      short: "GettingOut",  slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: true,  yorkGo: false },
+  { key: "york-gettingout",  label: "York Prison (GettingOut)", short: "York GO",     slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: true  },
 ];
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
@@ -577,6 +578,130 @@ function exportCSV(inmates: Inmate[], facilityKey: string) {
   URL.revokeObjectURL(url);
 }
 
+// ─── York Prison GettingOut Panel ──────────────────────────────────────────────
+
+interface YorkGoContact {
+  id: number;
+  name: string;
+  firstName: string;
+  lastName: string;
+  facility: string;
+}
+
+function YorkGettingOutPanel() {
+  const [contacts, setContacts] = useState<YorkGoContact[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState("");
+  const [query, setQuery]       = useState("");
+
+  const load = async () => {
+    setLoading(true); setError("");
+    try {
+      const r = await apiRequest("GET", "/api/gettingout/york");
+      const data = await r.json();
+      if (data.error) setError(data.error);
+      else setContacts(data.contacts ?? []);
+    } catch { setError("Failed to load roster."); }
+    finally { setLoading(false); }
+  };
+
+  useState(() => { load(); });
+
+  const filtered = contacts.filter(c =>
+    !query.trim() ||
+    c.name.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const exportCSVGo = () => {
+    const headers = ["#", "Name", "First Name", "Last Name", "Facility"];
+    const rows = filtered.map((c, i) => [i + 1, `"${c.name}"`, `"${c.firstName}"`, `"${c.lastName}"`, `"${c.facility}"` ]);
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url;
+    a.download = `york-prison-gettingout-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="flex flex-col h-full overflow-y-auto">
+
+      {/* Header */}
+      <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-border bg-card">
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-primary" />
+          <span className="text-sm font-semibold text-foreground">York County Prison — GettingOut Roster</span>
+          {contacts.length > 0 && (
+            <Badge variant="secondary" className="text-[10px] h-4 px-1.5 bg-primary/15 text-primary border-0">
+              {filtered.length !== contacts.length ? `${filtered.length}/` : ""}{contacts.length}
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={exportCSVGo} disabled={!filtered.length} className="text-xs gap-1.5 h-8">
+            <Download className="w-3.5 h-3.5" />Export CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={load} disabled={loading} className="text-xs gap-1.5 h-8">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="shrink-0 flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input placeholder="Search name…" value={query} onChange={e => setQuery(e.target.value)}
+            className="pl-8 h-8 text-sm bg-background border-border focus:border-primary" />
+          {query && <button onClick={() => setQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">×</button>}
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Users className="w-3.5 h-3.5" />
+          <span className="tabular">{loading ? "Loading…" : `${filtered.length} inmates`}</span>
+        </div>
+      </div>
+
+      {/* Content */}
+      {error ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+          <AlertCircle className="w-8 h-8 text-destructive/60" /><p className="text-sm">{error}</p>
+        </div>
+      ) : loading ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+          <RefreshCw className="w-6 h-6 animate-spin text-primary" /><p className="text-sm">Loading roster…</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead className="sticky top-0 z-10 bg-card">
+              <tr className="border-b border-border">
+                <th className="pl-4 pr-2 py-3 w-14 text-left"><span className="uppercase tracking-wider text-[11px] font-semibold text-muted-foreground">#</span></th>
+                <th className="px-3 py-3 text-left"><span className="uppercase tracking-wider text-[11px] font-semibold text-muted-foreground">Name</span></th>
+                <th className="px-3 py-3 text-left"><span className="uppercase tracking-wider text-[11px] font-semibold text-muted-foreground">First Name</span></th>
+                <th className="pr-4 px-3 py-3 text-left"><span className="uppercase tracking-wider text-[11px] font-semibold text-muted-foreground">Last Name</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((c, i) => (
+                <tr key={`${c.name}-${i}`} className="border-b border-border/40 hover:bg-secondary/50 transition-colors">
+                  <td className="pl-4 pr-2 py-2.5 text-muted-foreground tabular text-xs">{i + 1}</td>
+                  <td className="px-3 py-2.5 font-medium">{c.name}</td>
+                  <td className="px-3 py-2.5 text-xs text-muted-foreground">{c.firstName}</td>
+                  <td className="pr-4 px-3 py-2.5 text-xs text-muted-foreground">{c.lastName}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="mt-auto px-5 py-3 text-[11px] text-muted-foreground/50 text-center border-t border-border">
+        Data sourced from <a href="https://www.gettingout.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-muted-foreground">GettingOut.com</a> · York County Prison, PA
+      </p>
+    </div>
+  );
+}
+
 // ─── GettingOut Panel ───────────────────────────────────────────────────────────
 
 interface GoContact {
@@ -1007,6 +1132,7 @@ export default function App() {
   const isSlowFetch   = activeFac?.slowFetch   ?? false;
   const isSearchOnly  = activeFac?.searchOnly  ?? false;
   const isGettingOut  = activeFac?.gettingOut  ?? false;
+  const isYorkGo      = activeFac?.yorkGo      ?? false;
 
   return (
     <div
@@ -1022,7 +1148,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · Crawford · Cumberland · Dauphin · Lancaster · Mercer · Philadelphia · Westmoreland · York · PA State · GettingOut
+              Live public data · Crawford · Cumberland · Dauphin · Lancaster · Mercer · Philadelphia · Westmoreland · York · PA State · GettingOut · York (GO)
             </p>
           </div>
         </div>
@@ -1033,7 +1159,7 @@ export default function App() {
               Updated {lastUpdated}
             </span>
           )}
-          {activeView === "roster" && !isComingSoon && !isSearchOnly && !isGettingOut && (
+          {activeView === "roster" && !isComingSoon && !isSearchOnly && !isGettingOut && !isYorkGo && (
             <Button
               variant="outline"
               size="sm"
@@ -1046,7 +1172,7 @@ export default function App() {
               {query ? `Export CSV (${filtered.length})` : "Export CSV"}
             </Button>
           )}
-          {activeView === "roster" && !isComingSoon && !isSearchOnly && !isGettingOut && (
+          {activeView === "roster" && !isComingSoon && !isSearchOnly && !isGettingOut && !isYorkGo && (
             <Button
               variant="outline"
               size="sm"
@@ -1090,7 +1216,7 @@ export default function App() {
       </nav>
 
       {/* ── View toggle (Roster / Delta) — only for live roster facilities ── */}
-      {!isComingSoon && !isSearchOnly && !isGettingOut && (
+      {!isComingSoon && !isSearchOnly && !isGettingOut && !isYorkGo && (
         <div className="shrink-0 flex border-b border-border bg-background">
           <button
             onClick={() => setActiveView("roster")}
@@ -1120,7 +1246,7 @@ export default function App() {
       )}
 
       {/* ── Toolbar (roster view only) ───────────────────────────────── */}
-      {activeView === "roster" && !isComingSoon && !isSearchOnly && !isGettingOut && (
+      {activeView === "roster" && !isComingSoon && !isSearchOnly && !isGettingOut && !isYorkGo && (
         <div className="shrink-0 flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -1155,7 +1281,10 @@ export default function App() {
       <main className="flex-1 overflow-y-auto overscroll-contain bg-background">
 
         {/* Coming soon facilities */}
-        {isGettingOut ? (
+        {isYorkGo ? (
+          <YorkGettingOutPanel />
+
+        ) : isGettingOut ? (
           <GettingOutPanel />
 
         ) : isSearchOnly ? (

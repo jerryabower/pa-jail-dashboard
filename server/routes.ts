@@ -281,6 +281,18 @@ export async function registerRoutes(
     fs.writeFileSync(GO_FILE, JSON.stringify(contacts, null, 2));
   }
 
+  // GET /api/gettingout/york — static roster pulled from GettingOut for York County Prison
+  const YORK_GO_FILE = path.resolve(process.cwd(), "york_gettingout.json");
+  app.get("/api/gettingout/york", (_req, res) => {
+    try {
+      if (!fs.existsSync(YORK_GO_FILE)) return res.json({ facility: "york-gettingout", count: 0, contacts: [] });
+      const data = JSON.parse(fs.readFileSync(YORK_GO_FILE, "utf8"));
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to load York GettingOut roster" });
+    }
+  });
+
   // GET /api/gettingout/contacts
   app.get("/api/gettingout/contacts", (_req, res) => {
     const contacts = loadGoContacts();
