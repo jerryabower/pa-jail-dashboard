@@ -262,6 +262,109 @@ export async function registerRoutes(
 
   const ALLOWED = ["york", "york-prison", "dauphin", "lancaster", "crawford", "cumberland", "mercer", "westmoreland", "padoc"];
 
+  // ── GettingOut contacts store ───────────────────────────────────────────────
+  // Lancaster and Dauphin are intentionally excluded from cross-referencing.
+  const GO_FILE = fs.existsSync("/data")
+    ? "/data/gettingout_contacts.json"
+    : path.resolve(process.cwd(), "gettingout_contacts.json");
+
+  const GO_CROSS_REF = ["crawford", "cumberland", "mercer", "westmoreland", "york-prison", "padoc"];
+
+  function loadGoContacts(): any[] {
+    try {
+      if (!fs.existsSync(GO_FILE)) return [];
+      return JSON.parse(fs.readFileSync(GO_FILE, "utf8")) as any[];
+    } catch { return []; }
+  }
+
+  function saveGoContacts(contacts: any[]): void {
+    fs.writeFileSync(GO_FILE, JSON.stringify(contacts, null, 2));
+  }
+
+  // GET /api/gettingout/contacts
+  app.get("/api/gettingout/contacts", (_req, res) => {
+    const contacts = loadGoContacts();
+    res.json({ contacts, count: contacts.length });
+  });
+
+  // POST /api/gettingout/upload — accepts raw text (CSV or JSON) from the client
+  app.post("/api/gettingout/upload", async (req, res) => {
+    try {
+      let body = "";
+      req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+      await new Promise(resolve => req.on("end", resolve));
+
+      let contacts: any[] = [];
+
+      // Try JSON first
+      try {
+        const parsed = JSON.parse(body);
+        contacts = Array.isArray(parsed) ? parsed : (parsed.contacts ?? []);
+      } catch {
+        // Fall back to CSV: expect header row with name,facility,inmateId,status
+        const lines = body.split("\n").map(l => l.trim()).filter(Boolean);
+        const headers = lines[0].toLowerCase().split(",").map(h => h.trim());
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(",").map(c => c.replace(/^"|"$/g, "").trim());
+          const row: Record<string, string> = {};
+          headers.forEach((h, idx) => { row[h] = cols[idx] ?? ""; });
+          contacts.push(row);
+        }
+      }
+
+      // Normalize and assign IDs
+      const normalized = contacts.map((c: any, idx: number) => ({
+        id: idx + 1,
+        name: (c.name || c.Name || "").trim(),
+        facility: (c.facility || c.Facility || "").trim(),
+        inmateId: (c.inmateId || c.inmate_id || c.InmateId || c["inmate id"] || "").trim(),
+        status: (c.status || c.Status || "").trim(),
+        paMatch: (c.paMatch || "").trim() || null,
+      })).filter((c: any) => c.name);
+
+      saveGoContacts(normalized);
+      res.json({ ok: true, count: normalized.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Upload failed" });
+    }
+  });
+
+  // POST /api/gettingout/crossref — re-run cross-reference against live county rosters
+  // Only checks GO_CROSS_REF counties (Lancaster & Dauphin excluded)
+  app.post("/api/gettingout/crossref", async (_req, res) => {
+    try {
+      const contacts = loadGoContacts();
+      if (contacts.length === 0) return res.json({ ok: true, matched: 0 });
+
+      // Fetch all allowed rosters in parallel
+      const rosterResults = await Promise.allSettled(
+        GO_CROSS_REF.map(f => fetchFacility(f).then(inmates => ({ facility: f, inmates })))
+      );
+
+      const allInmates: { facility: string; name: string }[] = [];
+      for (const r of rosterResults) {
+        if (r.status === "fulfilled") {
+          for (const inmate of r.value.inmates) {
+            allInmates.push({ facility: r.value.facility, name: (inmate.name || "").toLowerCase().trim() });
+          }
+        }
+      }
+
+      let matched = 0;
+      const updated = contacts.map((c: any) => {
+        const nameLower = (c.name || "").toLowerCase().trim();
+        const hit = allInmates.find(i => i.name === nameLower);
+        if (hit) matched++;
+        return { ...c, paMatch: hit ? hit.facility : null };
+      });
+
+      saveGoContacts(updated);
+      res.json({ ok: true, matched, total: contacts.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Cross-reference failed" });
+    }
+  });
+
   // ── Philadelphia County search passthrough ──────────────────────────────
   const PHILA_KEY = "685088e7b4ef77cffb263b1349bc6583";
   const PHILA_BASE = "https://api.phila.gov/inmate-locator";
