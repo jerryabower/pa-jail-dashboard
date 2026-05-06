@@ -240,6 +240,16 @@ async function fetchFacility(facility: string): Promise<any[]> {
     return []; // frontend will poll/refresh
   }
 
+  // GettingOut static rosters — serve from JSON file
+  if (facility === "york-gettingout") {
+    if (cache[facility] && now - cache[facility].ts < CACHE_TTL) {
+      return cache[facility].data;
+    }
+    const inmates = loadYorkGoRoster();
+    cache[facility] = { data: inmates, ts: now };
+    return inmates;
+  }
+
   // County jails — direct fetch
   if (cache[facility] && now - cache[facility].ts < CACHE_TTL) {
     return cache[facility].data;
@@ -260,7 +270,7 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
-  const ALLOWED = ["york", "york-prison", "dauphin", "lancaster", "crawford", "cumberland", "mercer", "westmoreland", "padoc"];
+  const ALLOWED = ["york", "york-prison", "dauphin", "lancaster", "crawford", "cumberland", "mercer", "westmoreland", "padoc", "york-gettingout"];
 
   // ── GettingOut contacts store ───────────────────────────────────────────────
   // Lancaster and Dauphin are intentionally excluded from cross-referencing.
@@ -281,16 +291,34 @@ export async function registerRoutes(
     fs.writeFileSync(GO_FILE, JSON.stringify(contacts, null, 2));
   }
 
-  // GET /api/gettingout/york — static roster pulled from GettingOut for York County Prison
-  const YORK_GO_FILE = path.resolve(process.cwd(), "york_gettingout.json");
-  app.get("/api/gettingout/york", (_req, res) => {
+  // GET /api/gettingout/york — legacy endpoint (kept for compatibility)
+  // GET /api/roster/york-gettingout — served via standard fetchFacility below
+  const YORK_GO_FILE = fs.existsSync("/data/york_gettingout.json")
+    ? "/data/york_gettingout.json"
+    : path.resolve(process.cwd(), "york_gettingout.json");
+
+  function loadYorkGoRoster(): any[] {
     try {
-      if (!fs.existsSync(YORK_GO_FILE)) return res.json({ facility: "york-gettingout", count: 0, contacts: [] });
+      if (!fs.existsSync(YORK_GO_FILE)) return [];
       const data = JSON.parse(fs.readFileSync(YORK_GO_FILE, "utf8"));
-      res.json(data);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message || "Failed to load York GettingOut roster" });
-    }
+      const contacts = data.contacts ?? [];
+      // Normalize to standard Inmate shape
+      return contacts.map((c: any, idx: number) => ({
+        id: idx + 1,
+        name: c.name || "",
+        lastName: c.lastName || "",
+        firstName: c.firstName || "",
+        ageDob: c.dob || "",
+        gender: c.gender || "",
+        bookingNumber: c.bookingNumber || "",
+        facility: c.facility || "York County Prison",
+      }));
+    } catch { return []; }
+  }
+
+  app.get("/api/gettingout/york", (_req, res) => {
+    const inmates = loadYorkGoRoster();
+    res.json({ facility: "york-gettingout", count: inmates.length, contacts: inmates });
   });
 
   // GET /api/gettingout/contacts

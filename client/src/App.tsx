@@ -74,7 +74,7 @@ const FACILITIES = [
   { key: "york-prison",   label: "York County Prison",    short: "York Prison", slowFetch: false, comingSoon: true,  searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "padoc",         label: "PA State Prisons",      short: "PA DOC",      slowFetch: true,  comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "gettingout",       label: "GettingOut Contacts",      short: "GettingOut",  slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: true,  yorkGo: false },
-  { key: "york-gettingout",  label: "York Prison (GettingOut)", short: "York GO",     slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: true  },
+  { key: "york-gettingout",  label: "York Prison (GettingOut)", short: "York GO",     slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
 ];
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
@@ -1132,7 +1132,6 @@ export default function App() {
   const isSlowFetch   = activeFac?.slowFetch   ?? false;
   const isSearchOnly  = activeFac?.searchOnly  ?? false;
   const isGettingOut  = activeFac?.gettingOut  ?? false;
-  const isYorkGo      = activeFac?.yorkGo      ?? false;
 
   return (
     <div
@@ -1159,7 +1158,7 @@ export default function App() {
               Updated {lastUpdated}
             </span>
           )}
-          {activeView === "roster" && !isComingSoon && !isSearchOnly && !isGettingOut && !isYorkGo && (
+          {activeView === "roster" && !isComingSoon && !isSearchOnly && !isGettingOut && (
             <Button
               variant="outline"
               size="sm"
@@ -1172,7 +1171,7 @@ export default function App() {
               {query ? `Export CSV (${filtered.length})` : "Export CSV"}
             </Button>
           )}
-          {activeView === "roster" && !isComingSoon && !isSearchOnly && !isGettingOut && !isYorkGo && (
+          {activeView === "roster" && !isComingSoon && !isSearchOnly && !isGettingOut && (
             <Button
               variant="outline"
               size="sm"
@@ -1216,7 +1215,7 @@ export default function App() {
       </nav>
 
       {/* ── View toggle (Roster / Delta) — only for live roster facilities ── */}
-      {!isComingSoon && !isSearchOnly && !isGettingOut && !isYorkGo && (
+      {!isComingSoon && !isSearchOnly && !isGettingOut && (
         <div className="shrink-0 flex border-b border-border bg-background">
           <button
             onClick={() => setActiveView("roster")}
@@ -1246,7 +1245,7 @@ export default function App() {
       )}
 
       {/* ── Toolbar (roster view only) ───────────────────────────────── */}
-      {activeView === "roster" && !isComingSoon && !isSearchOnly && !isGettingOut && !isYorkGo && (
+      {activeView === "roster" && !isComingSoon && !isSearchOnly && !isGettingOut && (
         <div className="shrink-0 flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -1281,10 +1280,7 @@ export default function App() {
       <main className="flex-1 overflow-y-auto overscroll-contain bg-background">
 
         {/* Coming soon facilities */}
-        {isYorkGo ? (
-          <YorkGettingOutPanel />
-
-        ) : isGettingOut ? (
+        {isGettingOut ? (
           <GettingOutPanel />
 
         ) : isSearchOnly ? (
