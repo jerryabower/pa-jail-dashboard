@@ -240,13 +240,14 @@ async function fetchFacility(facility: string): Promise<any[]> {
     return []; // frontend will poll/refresh
   }
 
-  // GettingOut static rosters — serve from JSON file
-  if (facility === "york-gettingout") {
-    if (cache[facility] && now - cache[facility].ts < CACHE_TTL) {
-      return cache[facility].data;
+  // GettingOut static rosters — serve from JSON files (go-* keys)
+  if (facility.startsWith("go-") || facility === "york-gettingout") {
+    const goKey = facility === "york-gettingout" ? "go-york" : facility;
+    if (cache[goKey] && now - cache[goKey].ts < CACHE_TTL) {
+      return cache[goKey].data;
     }
-    const inmates = loadYorkGoRoster();
-    cache[facility] = { data: inmates, ts: now };
+    const inmates = loadGoFacilityRoster(goKey);
+    cache[goKey] = { data: inmates, ts: now };
     return inmates;
   }
 
@@ -270,7 +271,41 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
-  const ALLOWED = ["york", "york-prison", "dauphin", "lancaster", "crawford", "cumberland", "mercer", "westmoreland", "padoc", "york-gettingout"];
+  // ── GettingOut facility index — auto-discover all scraped GO facilities ──
+  const GO_DATA_DIR = fs.existsSync("/data") ? "/data" : path.resolve(process.cwd());
+  const GO_INDEX_FILE = path.join(GO_DATA_DIR, "go_facilities_index.json");
+
+  function getGoFacilityKeys(): string[] {
+    try {
+      if (!fs.existsSync(GO_INDEX_FILE)) return ["york-gettingout"];
+      const idx = JSON.parse(fs.readFileSync(GO_INDEX_FILE, "utf8"));
+      return Object.keys(idx.facilities ?? {}).map(k => `go-${k}`);
+    } catch { return ["york-gettingout"]; }
+  }
+
+  function loadGoFacilityRoster(goKey: string): any[] {
+    // goKey is like "go-york" — map to file go_york.json
+    const fileKey = goKey.replace(/^go-/, "");
+    const filePath = path.join(GO_DATA_DIR, `go_${fileKey}.json`);
+    try {
+      if (!fs.existsSync(filePath)) return [];
+      const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      return (data.contacts ?? []).map((c: any, idx: number) => ({
+        id: idx + 1,
+        name: c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim(),
+        lastName: c.lastName || "",
+        firstName: c.firstName || "",
+        ageDob: c.dob || "",
+        gender: c.gender || "",
+        bookingNumber: c.bookingNumber || "",
+        bookDate: c.bookDate || "",
+        facility: c.facility || "",
+      }));
+    } catch { return []; }
+  }
+
+  const STATIC_ALLOWED = ["york", "york-prison", "dauphin", "lancaster", "crawford", "cumberland", "mercer", "westmoreland", "padoc"];
+  const ALLOWED = [...STATIC_ALLOWED, ...getGoFacilityKeys()];
 
   // ── GettingOut contacts store ───────────────────────────────────────────────
   // Lancaster and Dauphin are intentionally excluded from cross-referencing.
@@ -290,6 +325,23 @@ export async function registerRoutes(
   function saveGoContacts(contacts: any[]): void {
     fs.writeFileSync(GO_FILE, JSON.stringify(contacts, null, 2));
   }
+
+  // GET /api/gettingout/facilities — list all scraped GO facilities
+  app.get("/api/gettingout/facilities", (_req, res) => {
+    try {
+      if (!fs.existsSync(GO_INDEX_FILE)) return res.json({ facilities: [] });
+      const idx = JSON.parse(fs.readFileSync(GO_INDEX_FILE, "utf8"));
+      const list = Object.entries(idx.facilities ?? {}).map(([key, val]: [string, any]) => ({
+        key:   `go-${key}`,
+        label: val.label,
+        count: val.count,
+        id:    val.id,
+      }));
+      res.json({ facilities: list, lastUpdated: idx.lastUpdated });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   // GET /api/gettingout/york — legacy endpoint (kept for compatibility)
   // GET /api/roster/york-gettingout — served via standard fetchFacility below

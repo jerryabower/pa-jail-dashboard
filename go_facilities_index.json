@@ -1,0 +1,11 @@
+{
+  "lastUpdated": "2026-05-06T13:58:52.812523Z",
+  "facilities": {
+    "york": {
+      "label": "York County Prison PA",
+      "id": 176171,
+      "count": 1690,
+      "file": "/home/user/workspace/pa-jail-dashboard/go_york.json"
+    }
+  }
+}
