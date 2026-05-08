@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
@@ -60,6 +60,30 @@ interface DeltaResult {
 type SortKey = "name" | "ageDob" | "gender" | "bookingNumber";
 type SortDir = "asc" | "desc";
 type ActiveView = "roster" | "delta";
+
+// ─── GettingOut facility type ─────────────────────────────────────────────────
+interface GoFacility {
+  key:   string;
+  label: string;
+  count: number;
+  id:    number;
+}
+
+// Letter bucket ranges for collapsible GettingOut nav
+const GO_BUCKETS: { label: string; start: string; end: string }[] = [
+  { label: "A – F", start: "a", end: "f" },
+  { label: "G – L", start: "g", end: "l" },
+  { label: "M – R", start: "m", end: "r" },
+  { label: "S – Z", start: "s", end: "z" },
+];
+
+function bucketFor(label: string): string {
+  const ch = (label[0] || "?").toLowerCase();
+  for (const b of GO_BUCKETS) {
+    if (ch >= b.start && ch <= b.end) return b.label;
+  }
+  return "Other";
+}
 
 // ─── Facility config ──────────────────────────────────────────────────────────
 
@@ -1070,6 +1094,148 @@ function PhillySearchPanel() {
   );
 }
 
+// ─── SideNav ──────────────────────────────────────────────────────────────────
+
+interface SideNavProps {
+  activeFacility: string;
+  onSelect: (key: string) => void;
+  activeCount?: number;
+  filteredCount?: number;
+}
+
+function SideNav({ activeFacility, onSelect, activeCount, filteredCount }: SideNavProps) {
+  const [goOpen, setGoOpen]         = useState(true);
+  const [openBuckets, setOpenBuckets] = useState<Record<string, boolean>>({});
+  const [goFacilities, setGoFacilities] = useState<GoFacility[]>([]);
+
+  // Fetch GO facilities from backend
+  useEffect(() => {
+    apiRequest("GET", "/api/gettingout/facilities")
+      .then(r => r.json())
+      .then(d => {
+        if (d.facilities) setGoFacilities(d.facilities);
+      })
+      .catch(() => {});
+  }, []);
+
+  const toggleBucket = (label: string) =>
+    setOpenBuckets(prev => ({ ...prev, [label]: !prev[label] }));
+
+  // Group GO facilities into buckets
+  const buckets = useMemo(() => {
+    const map: Record<string, GoFacility[]> = {};
+    for (const fac of goFacilities) {
+      const b = bucketFor(fac.label);
+      if (!map[b]) map[b] = [];
+      map[b].push(fac);
+    }
+    // Sort within each bucket
+    for (const b of Object.keys(map)) {
+      map[b].sort((a, b) => a.label.localeCompare(b.label));
+    }
+    return map;
+  }, [goFacilities]);
+
+  const navBtn = (key: string, label: string, short: string, count?: number) => {
+    const isActive = activeFacility === key;
+    return (
+      <button
+        key={key}
+        onClick={() => onSelect(key)}
+        title={label}
+        className={`w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-md transition-colors text-left ${
+          isActive
+            ? "bg-primary/15 text-primary font-semibold"
+            : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+        }`}
+      >
+        <span className="truncate">{label}</span>
+        {isActive && activeCount !== undefined && (
+          <Badge variant="secondary" className="ml-1.5 text-[9px] h-3.5 px-1 bg-primary/20 text-primary border-0 tabular shrink-0">
+            {filteredCount !== activeCount ? `${filteredCount}/` : ""}{activeCount}
+          </Badge>
+        )}
+      </button>
+    );
+  };
+
+  return (
+    <aside className="shrink-0 w-52 flex flex-col border-r border-border bg-card overflow-y-auto">
+
+      {/* ── PA Counties section ── */}
+      <div className="px-3 pt-3 pb-1">
+        <p className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground/60 px-1 mb-1">PA Counties</p>
+        <div className="flex flex-col gap-0.5">
+          {FACILITIES.filter(f => !f.gettingOut).map(f =>
+            navBtn(f.key, f.label, f.short)
+          )}
+        </div>
+      </div>
+
+      <div className="mx-3 my-2 border-t border-border/60" />
+
+      {/* ── GettingOut section ── */}
+      <div className="px-3 pb-3">
+        <button
+          onClick={() => setGoOpen(o => !o)}
+          className="w-full flex items-center justify-between px-1 mb-1 group"
+        >
+          <p className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">GettingOut</p>
+          {goOpen
+            ? <ChevronUp className="w-3 h-3 text-muted-foreground/40" />
+            : <ChevronDown className="w-3 h-3 text-muted-foreground/40" />}
+        </button>
+
+        {goOpen && (
+          <div className="flex flex-col gap-0.5">
+            {/* GettingOut Contacts special tab */}
+            {FACILITIES.filter(f => f.gettingOut).map(f =>
+              navBtn(f.key, f.label, f.short)
+            )}
+
+            {goFacilities.length === 0 && (
+              <p className="text-[11px] text-muted-foreground/40 px-2 py-2 italic">
+                No facilities loaded yet.
+                Run the scraper to add them.
+              </p>
+            )}
+
+            {/* Letter buckets */}
+            {GO_BUCKETS.map(bucket => {
+              const items = buckets[bucket.label] ?? [];
+              if (items.length === 0) return null;
+              const isOpen = openBuckets[bucket.label] ?? false;
+              return (
+                <div key={bucket.label}>
+                  <button
+                    onClick={() => toggleBucket(bucket.label)}
+                    className="w-full flex items-center justify-between px-2 py-1 mt-1 rounded hover:bg-secondary/40 transition-colors group"
+                  >
+                    <span className="text-[10px] font-semibold text-muted-foreground/70 group-hover:text-muted-foreground">
+                      {bucket.label}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-muted-foreground/40">{items.length}</span>
+                      {isOpen
+                        ? <ChevronUp className="w-3 h-3 text-muted-foreground/40" />
+                        : <ChevronDown className="w-3 h-3 text-muted-foreground/40" />}
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="flex flex-col gap-0.5 ml-2 mt-0.5">
+                      {items.map(fac => navBtn(fac.key, fac.label, fac.label))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}
+
 // ─── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -1187,32 +1353,14 @@ export default function App() {
         </div>
       </header>
 
-      {/* ── Facility tabs ────────────────────────────────────────────── */}
-      <nav className="shrink-0 flex items-center gap-1 px-4 pt-3 pb-0 border-b border-border bg-background">
-        {FACILITIES.map(fac => (
-          <button
-            key={fac.key}
-            onClick={() => { setActiveFacility(fac.key); setQuery(""); setActiveView("roster"); }}
-            data-testid={`tab-${fac.key}`}
-            className={`relative px-4 py-2 text-sm font-medium rounded-t-md transition-colors border-b-2 -mb-px ${
-              activeFacility === fac.key
-                ? "border-primary text-primary bg-card"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-          >
-            <span className="hidden sm:inline">{fac.label}</span>
-            <span className="sm:hidden">{fac.short}</span>
-            {activeFacility === fac.key && data?.count !== undefined && activeView === "roster" && (
-              <Badge
-                variant="secondary"
-                className="ml-2 text-[10px] h-4 px-1.5 bg-primary/15 text-primary border-0 tabular"
-              >
-                {filtered.length !== data.count ? `${filtered.length}/` : ""}{data.count}
-              </Badge>
-            )}
-          </button>
-        ))}
-      </nav>
+      {/* ── Two-section sidebar nav ──────────────────────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
+        <SideNav
+          activeFacility={activeFacility}
+          onSelect={(key) => { setActiveFacility(key); setQuery(""); setActiveView("roster"); }}
+          activeCount={activeFacility && data?.count !== undefined && activeView === "roster" ? data.count : undefined}
+          filteredCount={activeFacility && data?.count !== undefined && activeView === "roster" ? filtered.length : undefined}
+        />
 
       {/* ── View toggle (Roster / Delta) — only for live roster facilities ── */}
       {!isComingSoon && !isSearchOnly && !isGettingOut && (
@@ -1351,6 +1499,8 @@ export default function App() {
           />
         )}
       </main>
+        </div>{/* end right panel */}
+      </div>{/* end flex row */}
 
       {/* ── Footer ───────────────────────────────────────────────────── */}
       <footer className="shrink-0 flex items-center justify-between px-5 py-2 border-t border-border bg-card/60 text-[11px] text-muted-foreground">
