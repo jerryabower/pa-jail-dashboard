@@ -16,7 +16,8 @@ RUN pip3 install --break-system-packages \
     requests \
     beautifulsoup4 \
     playwright \
-    urllib3
+    urllib3 \
+    gender-guesser
 
 # Install Playwright browsers
 RUN playwright install chromium --with-deps

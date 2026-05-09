@@ -24,6 +24,28 @@ from bs4 import BeautifulSoup
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# ─── Gender inference (shared helper) ────────────────────────────────────────
+try:
+    import gender_guesser.detector as _gender_mod
+    _gender_detector = _gender_mod.Detector()
+except ImportError:
+    _gender_detector = None
+
+def infer_gender(first_name: str) -> str:
+    """Return 'M', 'F', or '' based on first name. Leaves ambiguous/unknown blank."""
+    if not _gender_detector or not first_name:
+        return ''
+    parts = first_name.strip().split('-')[0].split()
+    if not parts:
+        return ''
+    name = parts[0].title()
+    result = _gender_detector.get_gender(name)
+    if result in ('male', 'mostly_male'):
+        return 'M'
+    elif result in ('female', 'mostly_female'):
+        return 'F'
+    return ''
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Facility Registry
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1069,7 +1091,7 @@ def fetch_monroe(url: str, facility_name: str) -> list[dict]:
         inmates.append({
             "name": name,
             "dob": "",
-            "gender": "",
+            "gender": infer_gender(first),
             "booking_number": mcj_num,
             "facility": facility_name,
         })
@@ -1134,11 +1156,13 @@ def fetch_erie(url: str, facility_name: str) -> list[dict]:
         key = f"{name}|{icn}"
         if key in seen:
             continue
+        # Extract first name from "Last, First" format for gender inference
+        first_for_gender = parts[1].strip().split()[0] if len(parts) == 2 else ""
         seen.add(key)
         inmates.append({
             "name": name,
             "dob": dob,
-            "gender": "",
+            "gender": infer_gender(first_for_gender),
             "booking_number": icn,
             "facility": facility_name,
         })
