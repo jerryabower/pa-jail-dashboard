@@ -88,7 +88,6 @@ function bucketFor(label: string): string {
 // ─── Facility config ──────────────────────────────────────────────────────────
 
 const FACILITIES = [
-  { key: "crawford",      label: "Crawford County",       short: "Crawford",    slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "cumberland",    label: "Cumberland County",     short: "Cumberland",  slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "dauphin",       label: "Dauphin County",        short: "Dauphin",     slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "lancaster",     label: "Lancaster County",      short: "Lancaster",   slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
@@ -198,7 +197,7 @@ function RosterTable({
               <SortHeader label="Sex" sortKey="gender" currentKey={sortKey} dir={sortDir} onSort={onSort} />
             </th>
             <th className="px-3 py-3 w-44">
-              <SortHeader label={facilityKey === "crawford" ? "Booking Date" : "Booking #"} sortKey="bookingNumber" currentKey={sortKey} dir={sortDir} onSort={onSort} />
+              <SortHeader label="Booking #" sortKey="bookingNumber" currentKey={sortKey} dir={sortDir} onSort={onSort} />
             </th>
             <th className="pr-4 px-3 py-3">
               <span className="uppercase tracking-wider text-[11px] font-semibold text-muted-foreground">Facility</span>
@@ -587,7 +586,7 @@ function exportDeltaCSV(inmates: Inmate[], variant: "added" | "released", facili
 }
 
 function exportCSV(inmates: Inmate[], facilityKey: string) {
-  const bookingHeader = facilityKey === "crawford" ? "Booking Date" : "Booking Number";
+  const bookingHeader = "Booking Number";
   const headers = ["#", "Name", "DOB/Age", "Sex", bookingHeader, "Facility"];
   const rows = inmates.map((i, idx) => [
     idx + 1, `"${i.name}"`, i.ageDob || "", i.gender || "", i.bookingNumber || "", `"${i.facility || ""}"`
@@ -795,7 +794,7 @@ function GettingOutPanel() {
 
   // Lancaster and Dauphin are excluded from cross-referencing intentionally
   const PA_COUNTY_LABELS: Record<string, string> = {
-    crawford: "Crawford County", cumberland: "Cumberland County",
+    cumberland: "Cumberland County",
     mercer: "Mercer County", philadelphia: "Philadelphia County",
     westmoreland: "Westmoreland County", "york-prison": "York County Prison",
     padoc: "PA State Prisons",
@@ -1239,7 +1238,7 @@ function SideNav({ activeFacility, onSelect, activeCount, filteredCount }: SideN
 // ─── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [activeFacility, setActiveFacility] = useState("crawford");
+  const [activeFacility, setActiveFacility] = useState("cumberland");
   const [activeView, setActiveView] = useState<ActiveView>("roster");
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -1313,7 +1312,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · Crawford · Cumberland · Dauphin · Lancaster · Mercer · Philadelphia · Westmoreland · York · PA State · GettingOut · York (GO)
+              Live public data · Cumberland · Dauphin · Lancaster · Mercer · Philadelphia · Westmoreland · York · PA State · GettingOut · York (GO)
             </p>
           </div>
         </div>
