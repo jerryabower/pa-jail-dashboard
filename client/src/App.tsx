@@ -90,16 +90,10 @@ function bucketFor(label: string): string {
 const FACILITIES = [
   { key: "monroe",       label: "Monroe County",         short: "Monroe",      slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "erie",         label: "Erie County",            short: "Erie",        slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
-  { key: "cumberland",    label: "Cumberland County",     short: "Cumberland",  slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
-  { key: "dauphin",       label: "Dauphin County",        short: "Dauphin",     slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "lancaster",     label: "Lancaster County",      short: "Lancaster",   slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "mercer",        label: "Mercer County",         short: "Mercer",      slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
-  { key: "philadelphia",  label: "Philadelphia County",   short: "Philadelphia",slowFetch: false, comingSoon: false, searchOnly: true,  gettingOut: false, yorkGo: false },
-  { key: "westmoreland",  label: "Westmoreland County",   short: "Westmoreland",slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
-  { key: "york-prison",   label: "York County Prison",    short: "York Prison", slowFetch: false, comingSoon: true,  searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "padoc",         label: "PA State Prisons",      short: "PA DOC",      slowFetch: true,  comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "gettingout",       label: "GettingOut Contacts",      short: "GettingOut",  slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: true,  yorkGo: false },
-  { key: "york-gettingout",  label: "York Prison (GettingOut)", short: "York GO",     slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
 ];
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
@@ -796,9 +790,7 @@ function GettingOutPanel() {
 
   // Lancaster and Dauphin are excluded from cross-referencing intentionally
   const PA_COUNTY_LABELS: Record<string, string> = {
-    cumberland: "Cumberland County",
-    mercer: "Mercer County", philadelphia: "Philadelphia County",
-    westmoreland: "Westmoreland County", "york-prison": "York County Prison",
+    mercer: "Mercer County",
     padoc: "PA State Prisons",
   };
 
@@ -1314,7 +1306,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · Monroe · Erie · Cumberland · Dauphin · Lancaster · Mercer · Philadelphia · Westmoreland · York · PA State · GettingOut
+              Live public data · Monroe · Erie · Lancaster · Mercer · PA State · GettingOut
             </p>
           </div>
         </div>
@@ -1449,13 +1441,11 @@ export default function App() {
             <div className="text-center">
               <p className="font-semibold text-foreground text-base">{activeFac?.label} — Roster Not Available</p>
               <p className="text-sm mt-2 max-w-xs text-center leading-relaxed">
-                {activeFacility === "york-prison"
-                  ? "York County Prison has not yet launched a public online inmate search. The county's website states it is coming soon."
-                  : "Allegheny County Jail does not offer a public online inmate roster. Inmate booking information is available by phone at 412-350-2000."}
+                {"This facility does not offer a public online inmate roster."}
               </p>
             </div>
             <a
-              href={activeFacility === "york-prison" ? "https://yorkcountypa.gov/477/Prison" : "https://www.alleghenycounty.us/Government/County-Jail/Inmate-Information"}
+              href="https://www.alleghenycounty.us/Government/County-Jail/Inmate-Information"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-primary hover:underline font-medium"
