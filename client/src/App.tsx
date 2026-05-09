@@ -88,6 +88,8 @@ function bucketFor(label: string): string {
 // ─── Facility config ──────────────────────────────────────────────────────────
 
 const FACILITIES = [
+  { key: "monroe",       label: "Monroe County",         short: "Monroe",      slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
+  { key: "erie",         label: "Erie County",            short: "Erie",        slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "cumberland",    label: "Cumberland County",     short: "Cumberland",  slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "dauphin",       label: "Dauphin County",        short: "Dauphin",     slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "lancaster",     label: "Lancaster County",      short: "Lancaster",   slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
@@ -1238,7 +1240,7 @@ function SideNav({ activeFacility, onSelect, activeCount, filteredCount }: SideN
 // ─── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [activeFacility, setActiveFacility] = useState("cumberland");
+  const [activeFacility, setActiveFacility] = useState("monroe");
   const [activeView, setActiveView] = useState<ActiveView>("roster");
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -1312,7 +1314,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · Cumberland · Dauphin · Lancaster · Mercer · Philadelphia · Westmoreland · York · PA State · GettingOut · York (GO)
+              Live public data · Monroe · Erie · Cumberland · Dauphin · Lancaster · Mercer · Philadelphia · Westmoreland · York · PA State · GettingOut
             </p>
           </div>
         </div>

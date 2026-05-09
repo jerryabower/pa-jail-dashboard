@@ -54,6 +54,16 @@ FACILITIES = {
         "url": "https://www.crawfordcountypa.net/CCCF/Pages/Inmate-Lists.aspx",
         "type": "crawford_pdf",
     },
+    "monroe": {
+        "name": "Monroe County Jail",
+        "url": "https://www.monroecounty.gov/files/inmate/roster.pdf",
+        "type": "monroe_pdf",
+    },
+    "erie": {
+        "name": "Erie County Prison",
+        "url": "https://www2.erie.gov/sheriff/sites/www2.erie.gov.sheriff/files/uploads/data/inmatelist.pdf",
+        "type": "erie_pdf",
+    },
     "cumberland": {
         "name": "Cumberland County Prison",
         "url": "https://ccweb.ccpa.net/inmatelisting/",
@@ -1003,6 +1013,139 @@ def fetch_mercer(url: str, facility_name: str) -> list[dict]:
     return sorted(inmates, key=lambda x: x["name"])
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Monroe County — live PDF roster (pdftotext -layout)
+# ─────────────────────────────────────────────────────────────────────────────
+
+MONROE_PDF_URL = "https://www.monroecounty.gov/files/inmate/roster.pdf"
+
+
+def fetch_monroe(url: str, facility_name: str) -> list[dict]:
+    """
+    Monroe County Jail roster PDF.
+    Layout: MCJ#  Last Name  First Name  Date of Entry
+    Uses pdftotext -layout via subprocess for clean column parsing.
+    """
+    import subprocess, io, tempfile, os
+
+    r = requests.get(MONROE_PDF_URL, headers=HEADERS, timeout=30)
+    r.raise_for_status()
+
+    # Write to temp file then pdftotext
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(r.content)
+        tmp_path = tmp.name
+
+    try:
+        result = subprocess.run(
+            ["pdftotext", "-layout", tmp_path, "-"],
+            capture_output=True, text=True, timeout=30
+        )
+        text = result.stdout
+    finally:
+        os.unlink(tmp_path)
+
+    inmates = []
+    seen = set()
+
+    for line in text.splitlines():
+        # Lines start with a 5-7 digit MCJ number
+        import re
+        m = re.match(r'^(\d{5,7})\s+(\S+)\s+(\S+(?:\s+\S+)?)\s+(\d{1,2}/\d{1,2}/\d{4})\s*$', line.strip())
+        if not m:
+            # Try looser match — MCJ# followed by last, first, date
+            m = re.match(r'^(\d{5,7})\s+(\S+)\s+(\S+)\s+(\d{1,2}/\d{1,2}/\d{4})', line.strip())
+        if not m:
+            continue
+        mcj_num = m.group(1)
+        last = m.group(2).title()
+        first = m.group(3).title()
+        entry_date = m.group(4)
+        name = f"{last}, {first}"
+        key = f"{name}|{mcj_num}"
+        if key in seen:
+            continue
+        seen.add(key)
+        inmates.append({
+            "name": name,
+            "dob": "",
+            "gender": "",
+            "booking_number": mcj_num,
+            "facility": facility_name,
+        })
+
+    return sorted(inmates, key=lambda x: x["name"])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Erie County — live PDF roster (pdftotext -layout)
+# ─────────────────────────────────────────────────────────────────────────────
+
+ERIE_PDF_URL = "https://www2.erie.gov/sheriff/sites/www2.erie.gov.sheriff/files/uploads/data/inmatelist.pdf"
+
+
+def fetch_erie(url: str, facility_name: str) -> list[dict]:
+    """
+    Erie County Sheriff inmate roster PDF.
+    Layout: ICN#  Inmate Name (LAST, FIRST)  DOB  Facility  Booking Date
+    Uses pdftotext -layout via subprocess.
+    """
+    import subprocess, io, tempfile, os, re
+
+    r = requests.get(ERIE_PDF_URL, headers=HEADERS, timeout=30)
+    r.raise_for_status()
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(r.content)
+        tmp_path = tmp.name
+
+    try:
+        result = subprocess.run(
+            ["pdftotext", "-layout", tmp_path, "-"],
+            capture_output=True, text=True, timeout=30
+        )
+        text = result.stdout
+    finally:
+        os.unlink(tmp_path)
+
+    inmates = []
+    seen = set()
+
+    for line in text.splitlines():
+        # Lines: ICN#   LAST, FIRST [MI]   MM/DD/YYYY   FACILITY   MM/DD/YYYY
+        m = re.match(
+            r'^(\d{3,7})\s+([A-Z][A-Z\s,\'\-\.]+?)\s+(\d{2}/\d{2}/\d{4})\s+(\S+)\s+(\d{2}/\d{2}/\d{4})\s*$',
+            line.strip()
+        )
+        if not m:
+            continue
+        icn = m.group(1)
+        name_raw = m.group(2).strip().rstrip(',')
+        dob = m.group(3)
+        booking_date = m.group(5)
+
+        # Name is already "LAST, FIRST" — title-case it
+        parts = name_raw.split(',')
+        if len(parts) == 2:
+            name = f"{parts[0].strip().title()}, {parts[1].strip().title()}"
+        else:
+            name = name_raw.title()
+
+        key = f"{name}|{icn}"
+        if key in seen:
+            continue
+        seen.add(key)
+        inmates.append({
+            "name": name,
+            "dob": dob,
+            "gender": "",
+            "booking_number": icn,
+            "facility": facility_name,
+        })
+
+    return sorted(inmates, key=lambda x: x["name"])
+
+
 FETCHERS = {
     "york_aspnet": fetch_york,
     "dauphin_iml": fetch_dauphin,
@@ -1014,6 +1157,8 @@ FETCHERS = {
     "westmoreland_asp": fetch_westmoreland,
     "padoc_county": fetch_padoc_county,
     "padoc_api": fetch_padoc,
+    "monroe_pdf": fetch_monroe,
+    "erie_pdf": fetch_erie,
 }
 
 

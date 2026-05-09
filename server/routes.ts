@@ -350,7 +350,7 @@ export async function registerRoutes(
     } catch { return []; }
   }
 
-  const STATIC_ALLOWED = ["york", "york-prison", "dauphin", "lancaster", "cumberland", "mercer", "westmoreland", "padoc"];
+  const STATIC_ALLOWED = ["york", "york-prison", "dauphin", "lancaster", "cumberland", "mercer", "westmoreland", "padoc", "monroe", "erie"];
   const ALLOWED = [...STATIC_ALLOWED, ...getGoFacilityKeysGlobal()];
 
   // ── GettingOut contacts store ───────────────────────────────────────────────
