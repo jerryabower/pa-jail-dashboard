@@ -330,6 +330,29 @@ export async function registerRoutes(
     fs.writeFileSync(GO_FILE, JSON.stringify(contacts, null, 2));
   }
 
+  // GET /api/gettingout/debug — path diagnostics
+  app.get("/api/gettingout/debug", (_req, res) => {
+    const cwd = process.cwd();
+    const indexExists = fs.existsSync(GO_INDEX_FILE);
+    const dataDir = GO_DATA_DIR;
+    const files = fs.existsSync(dataDir)
+      ? fs.readdirSync(dataDir).filter((f: string) => f.startsWith("go_"))
+      : [];
+    const sampleFile = files[0] ? path.join(dataDir, files[0]) : null;
+    const sampleExists = sampleFile ? fs.existsSync(sampleFile) : false;
+    res.json({
+      cwd,
+      dataDir,
+      indexFile: GO_INDEX_FILE,
+      indexExists,
+      goFilesFound: files.length,
+      goFiles: files.slice(0, 5),
+      sampleFile,
+      sampleExists,
+      dirname: __dirname,
+    });
+  });
+
   // GET /api/gettingout/facilities — list all scraped GO facilities
   app.get("/api/gettingout/facilities", (_req, res) => {
     try {
