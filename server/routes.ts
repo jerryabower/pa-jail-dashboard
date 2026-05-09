@@ -272,7 +272,11 @@ export async function registerRoutes(
 ): Promise<Server> {
 
   // ── GettingOut facility index — auto-discover all scraped GO facilities ──
-  const GO_DATA_DIR = fs.existsSync("/data") ? "/data" : path.resolve(process.cwd());
+  // On Railway, process.cwd() = /app and JSON files are committed to repo root (/app)
+  // __dirname in dist/index.cjs = /app/dist, so we go one level up as fallback
+  const GO_DATA_DIR = fs.existsSync("/data") ? "/data"
+    : fs.existsSync(path.resolve(process.cwd(), "go_facilities_index.json")) ? path.resolve(process.cwd())
+    : path.resolve(path.dirname(require.resolve("./routes")), "..");
   const GO_INDEX_FILE = path.join(GO_DATA_DIR, "go_facilities_index.json");
 
   function getGoFacilityKeys(): string[] {
@@ -347,7 +351,7 @@ export async function registerRoutes(
   // GET /api/roster/york-gettingout — served via standard fetchFacility below
   const YORK_GO_FILE = fs.existsSync("/data/york_gettingout.json")
     ? "/data/york_gettingout.json"
-    : path.resolve(process.cwd(), "york_gettingout.json");
+    : path.resolve(GO_DATA_DIR, "york_gettingout.json");
 
   function loadYorkGoRoster(): any[] {
     try {
