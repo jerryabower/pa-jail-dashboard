@@ -1,9 +1,1 @@
-{
-  "facility": "Adams County PA Adult Re-entry Housing",
-  "facilityId": 234821,
-  "facilityKey": "adams-adult-re-entry-housing",
-  "count": 0,
-  "lastUpdated": "2026-05-09T12:27:57.205135Z",
-  "source": "gettingout",
-  "contacts": []
-}
+{"facility": "Adams County PA Adult Re-entry Housing", "facilityId": 234821, "facilityKey": "adams-adult-re-entry-housing", "count": 0, "lastUpdated": "2026-05-09T12:27:57.205135Z", "source": "gettingout", "contacts": []}
