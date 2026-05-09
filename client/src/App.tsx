@@ -1362,6 +1362,9 @@ export default function App() {
           filteredCount={activeFacility && data?.count !== undefined && activeView === "roster" ? filtered.length : undefined}
         />
 
+        {/* ── Right panel ── */}
+        <div className="flex flex-col flex-1 overflow-hidden">
+
       {/* ── View toggle (Roster / Delta) — only for live roster facilities ── */}
       {!isComingSoon && !isSearchOnly && !isGettingOut && (
         <div className="shrink-0 flex border-b border-border bg-background">
@@ -1499,6 +1502,7 @@ export default function App() {
           />
         )}
       </main>
+
         </div>{/* end right panel */}
       </div>{/* end flex row */}
 
