@@ -350,7 +350,7 @@ export async function registerRoutes(
     } catch { return []; }
   }
 
-  const STATIC_ALLOWED = ["york", "dauphin", "lancaster", "cumberland", "mercer", "westmoreland", "padoc", "monroe", "erie"];
+  const STATIC_ALLOWED = ["york", "dauphin", "lancaster", "cumberland", "westmoreland", "padoc", "monroe", "erie"];
   const ALLOWED = [...STATIC_ALLOWED, ...getGoFacilityKeysGlobal()];
 
   // ── GettingOut contacts store ───────────────────────────────────────────────
@@ -359,7 +359,7 @@ export async function registerRoutes(
     ? "/data/gettingout_contacts.json"
     : path.resolve(process.cwd(), "gettingout_contacts.json");
 
-  const GO_CROSS_REF = ["mercer", "padoc"];
+  const GO_CROSS_REF = ["padoc"];
 
   function loadGoContacts(): any[] {
     try {

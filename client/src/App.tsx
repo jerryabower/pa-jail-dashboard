@@ -91,7 +91,6 @@ const FACILITIES = [
   { key: "monroe",       label: "Monroe County",         short: "Monroe",      slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "erie",         label: "Erie County",            short: "Erie",        slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "lancaster",     label: "Lancaster County",      short: "Lancaster",   slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
-  { key: "mercer",        label: "Mercer County",         short: "Mercer",      slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "padoc",         label: "PA State Prisons",      short: "PA DOC",      slowFetch: true,  comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "gettingout",       label: "GettingOut Contacts",      short: "GettingOut",  slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: true,  yorkGo: false },
 ];
@@ -790,7 +789,6 @@ function GettingOutPanel() {
 
   // Lancaster and Dauphin are excluded from cross-referencing intentionally
   const PA_COUNTY_LABELS: Record<string, string> = {
-    mercer: "Mercer County",
     padoc: "PA State Prisons",
   };
 
@@ -1306,7 +1304,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · Monroe · Erie · Lancaster · Mercer · PA State · GettingOut
+              Live public data · Monroe · Erie · Lancaster · PA State · GettingOut
             </p>
           </div>
         </div>
