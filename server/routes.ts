@@ -25,6 +25,48 @@ if (!fs.existsSync(SNAPSHOTS_DIR)) {
   fs.mkdirSync(SNAPSHOTS_DIR, { recursive: true });
 }
 
+// ─── GettingOut module-level constants & helpers ───────────────────────────────
+const GO_DATA_DIR_GLOBAL = fs.existsSync("/data")
+  ? "/data"
+  : fs.existsSync(path.resolve(process.cwd(), "go_facilities_index.json"))
+  ? path.resolve(process.cwd())
+  : path.resolve(__dirname, "..");
+
+function loadGoFacilityRoster(goKey: string): any[] {
+  const fileKey = goKey.replace(/^go-/, "");
+  const filePath = path.join(GO_DATA_DIR_GLOBAL, `go_${fileKey}.json`);
+  try {
+    if (!fs.existsSync(filePath)) {
+      console.error(`[go] file not found: ${filePath}`);
+      return [];
+    }
+    const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    return (data.contacts ?? []).map((c: any, idx: number) => ({
+      id: idx + 1,
+      name: c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim(),
+      lastName:      c.lastName      || "",
+      firstName:     c.firstName     || "",
+      ageDob:        c.dob           || "",
+      gender:        c.gender        || "",
+      bookingNumber: c.bookingNumber || "",
+      bookDate:      c.bookDate      || "",
+      facility:      c.facility      || "",
+    }));
+  } catch (err: any) {
+    console.error(`[go] failed to load ${filePath}:`, err.message);
+    return [];
+  }
+}
+
+function getGoFacilityKeysGlobal(): string[] {
+  try {
+    const indexFile = path.join(GO_DATA_DIR_GLOBAL, "go_facilities_index.json");
+    if (!fs.existsSync(indexFile)) return [];
+    const idx = JSON.parse(fs.readFileSync(indexFile, "utf8"));
+    return Object.keys(idx.facilities ?? {}).map((k: string) => `go-${k}`);
+  } catch { return []; }
+}
+
 // ─── Snapshot helpers ────────────────────────────────────────────────────────
 
 interface Snapshot {
@@ -309,7 +351,7 @@ export async function registerRoutes(
   }
 
   const STATIC_ALLOWED = ["york", "york-prison", "dauphin", "lancaster", "crawford", "cumberland", "mercer", "westmoreland", "padoc"];
-  const ALLOWED = [...STATIC_ALLOWED, ...getGoFacilityKeys()];
+  const ALLOWED = [...STATIC_ALLOWED, ...getGoFacilityKeysGlobal()];
 
   // ── GettingOut contacts store ───────────────────────────────────────────────
   // Lancaster and Dauphin are intentionally excluded from cross-referencing.
