@@ -3,7 +3,7 @@ builder = "dockerfile"
 
 [deploy]
 startCommand = "node dist/index.cjs"
-healthcheckPath = "/api/roster/york-prison"
+healthcheckPath = "/api/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
