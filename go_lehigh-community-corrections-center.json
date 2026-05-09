@@ -1,0 +1,106 @@
+{
+  "facility": "Lehigh County Community Corrections Center",
+  "facilityId": 220031,
+  "facilityKey": "lehigh-community-corrections-center",
+  "count": 8,
+  "lastUpdated": "2026-05-09T12:34:20.573643Z",
+  "source": "gettingout",
+  "contacts": [
+    {
+      "id": 4162230581,
+      "name": "JESSICA DONCHEZ",
+      "firstName": "JESSICA",
+      "lastName": "DONCHEZ",
+      "dob": null,
+      "bookingNumber": "01979816301",
+      "bookDate": "2020-10-16T00:59:07Z",
+      "facility": "Lehigh County Community Corrections Center",
+      "facilityId": 220031,
+      "source": "gettingout"
+    },
+    {
+      "id": 4001508841,
+      "name": "GTL Engineer 1",
+      "firstName": "GTL",
+      "lastName": "Engineer 1",
+      "dob": "1969-06-09",
+      "bookingNumber": "3400253",
+      "bookDate": "2021-11-19T19:31:19Z",
+      "facility": "Lehigh County Community Corrections Center",
+      "facilityId": 220031,
+      "source": "gettingout"
+    },
+    {
+      "id": 4162230241,
+      "name": "NATALIE FINLEY",
+      "firstName": "NATALIE",
+      "lastName": "FINLEY",
+      "dob": null,
+      "bookingNumber": "01992930556",
+      "bookDate": "2020-10-16T00:59:07Z",
+      "facility": "Lehigh County Community Corrections Center",
+      "facilityId": 220031,
+      "source": "gettingout"
+    },
+    {
+      "id": 4162230411,
+      "name": "HEATHER-EILEEN MALONE",
+      "firstName": "HEATHER-EILEEN",
+      "lastName": "MALONE",
+      "dob": null,
+      "bookingNumber": "00633096635",
+      "bookDate": "2020-10-16T00:59:07Z",
+      "facility": "Lehigh County Community Corrections Center",
+      "facilityId": 220031,
+      "source": "gettingout"
+    },
+    {
+      "id": 4165501381,
+      "name": "CANDY RUMFORD",
+      "firstName": "CANDY",
+      "lastName": "RUMFORD",
+      "dob": null,
+      "bookingNumber": "01941547829",
+      "bookDate": "2020-10-23T00:58:07Z",
+      "facility": "Lehigh County Community Corrections Center",
+      "facilityId": 220031,
+      "source": "gettingout"
+    },
+    {
+      "id": 4187629941,
+      "name": "JENNIFER SAGER",
+      "firstName": "JENNIFER",
+      "lastName": "SAGER",
+      "dob": null,
+      "bookingNumber": "02008409628",
+      "bookDate": "2020-11-20T01:01:08Z",
+      "facility": "Lehigh County Community Corrections Center",
+      "facilityId": 220031,
+      "source": "gettingout"
+    },
+    {
+      "id": 4052904941,
+      "name": "Sergeant Sergeant",
+      "firstName": "Sergeant",
+      "lastName": "Sergeant",
+      "dob": null,
+      "bookingNumber": "",
+      "bookDate": "2020-10-15T01:58:15Z",
+      "facility": "Lehigh County Community Corrections Center",
+      "facilityId": 220031,
+      "source": "gettingout"
+    },
+    {
+      "id": 4187630111,
+      "name": "BRIANNA VELEZ",
+      "firstName": "BRIANNA",
+      "lastName": "VELEZ",
+      "dob": null,
+      "bookingNumber": "01943853641",
+      "bookDate": "2020-11-20T01:01:08Z",
+      "facility": "Lehigh County Community Corrections Center",
+      "facilityId": 220031,
+      "source": "gettingout"
+    }
+  ]
+}

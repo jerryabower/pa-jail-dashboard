@@ -1,0 +1,70 @@
+{
+  "facility": "Susquehanna County Jail PA",
+  "facilityId": 193341,
+  "facilityKey": "susquehanna",
+  "count": 5,
+  "lastUpdated": "2026-05-09T12:38:44.968091Z",
+  "source": "gettingout",
+  "contacts": [
+    {
+      "id": 3627588741,
+      "name": "Telmate Engineer",
+      "firstName": "Telmate",
+      "lastName": "Engineer",
+      "dob": null,
+      "bookingNumber": "3400253",
+      "bookDate": "2021-04-22T18:23:22Z",
+      "facility": "Susquehanna County Jail PA",
+      "facilityId": 193341,
+      "source": "gettingout"
+    },
+    {
+      "id": 4283125061,
+      "name": "Eleanor Jamison",
+      "firstName": "Eleanor",
+      "lastName": "Jamison",
+      "dob": "1985-10-10",
+      "bookingNumber": "21108",
+      "bookDate": "2021-03-20T00:00:00Z",
+      "facility": "Susquehanna County Jail PA",
+      "facilityId": 193341,
+      "source": "gettingout"
+    },
+    {
+      "id": 4285528691,
+      "name": "Eleanor Jamison",
+      "firstName": "Eleanor",
+      "lastName": "Jamison",
+      "dob": null,
+      "bookingNumber": "21-108",
+      "bookDate": "2021-03-20T00:00:00Z",
+      "facility": "Susquehanna County Jail PA",
+      "facilityId": 193341,
+      "source": "gettingout"
+    },
+    {
+      "id": 4275473701,
+      "name": "Victoria Norton",
+      "firstName": "Victoria",
+      "lastName": "Norton",
+      "dob": "1985-11-29",
+      "bookingNumber": "20392",
+      "bookDate": "2020-11-24T00:00:00Z",
+      "facility": "Susquehanna County Jail PA",
+      "facilityId": 193341,
+      "source": "gettingout"
+    },
+    {
+      "id": 6282743567,
+      "name": "CHRISTOPHER SNOW",
+      "firstName": "CHRISTOPHER",
+      "lastName": "SNOW",
+      "dob": "1990-04-23",
+      "bookingNumber": "26072",
+      "bookDate": "2026-05-07T13:46:57Z",
+      "facility": "Susquehanna County Jail PA",
+      "facilityId": 193341,
+      "source": "gettingout"
+    }
+  ]
+}
