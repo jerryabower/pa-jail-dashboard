@@ -27,8 +27,31 @@ HEADERS = {
 SEARCH_CHARS = "abcdefghijklmnopqrstuvwxyz"
 DELAY = 0.15  # seconds between requests
 
-# Output directory — use /data if available (Railway volume), else cwd
+# Output directory — use /data if available (Railway volume), else script dir
 DATA_DIR = "/data" if os.path.exists("/data") else os.path.dirname(os.path.abspath(__file__))
+
+# Script directory — where the bundled go_facilities_index.json lives
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def load_existing_index():
+    """Load go_facilities_index.json from DATA_DIR or SCRIPT_DIR.
+    Returns (id_to_key dict, facilities dict) so we can preserve canonical keys."""
+    for d in [DATA_DIR, SCRIPT_DIR]:
+        p = os.path.join(d, "go_facilities_index.json")
+        if os.path.exists(p):
+            try:
+                with open(p) as f:
+                    idx = json.load(f)
+                facs = idx.get("facilities", {})
+                id_to_key = {}
+                for key, info in facs.items():
+                    if isinstance(info, dict) and info.get("id"):
+                        id_to_key[int(info["id"])] = key
+                return id_to_key, facs
+            except Exception:
+                pass
+    return {}, {}
 
 
 def fetch(url):
@@ -71,30 +94,36 @@ def scrape_facility(facility_id, facility_label):
     return list(seen.values())
 
 
-def save_facility(facility_id, facility_label, inmates):
-    # Build a safe filename key from facility label
-    safe = facility_label.lower()
+def make_safe_key(label):
+    """Derive a filename-safe key from facility label (fallback only)."""
+    safe = label.lower()
     safe = safe.replace(" county", "").replace(" jail", "").replace(" prison", "")
     safe = safe.replace(" pa", "").replace(" correctional facility", "").replace(",", "")
     safe = "".join(c if c.isalnum() else "-" for c in safe.strip())
     safe = safe.strip("-")
+    return safe
+
+
+def save_facility(facility_id, facility_label, inmates, forced_key=None):
+    """Save facility roster. Uses forced_key if provided (preserves canonical index key)."""
+    safe = forced_key if forced_key else make_safe_key(facility_label)
 
     out = {
-        "facility":      facility_label,
-        "facilityId":    facility_id,
-        "facilityKey":   safe,
-        "count":         len(inmates),
-        "lastUpdated":   datetime.utcnow().isoformat() + "Z",
-        "source":        "gettingout",
-        "contacts":      sorted(inmates, key=lambda x: x.get("lastName", ""))
+        "facility":    facility_label,
+        "facilityId":  facility_id,
+        "facilityKey": safe,
+        "count":       len(inmates),
+        "lastUpdated": datetime.utcnow().isoformat() + "Z",
+        "source":      "gettingout",
+        "contacts":    sorted(inmates, key=lambda x: x.get("lastName", ""))
     }
 
-    path = os.path.join(DATA_DIR, f"go_{safe}.json")
-    with open(path, "w") as f:
+    fpath = os.path.join(DATA_DIR, f"go_{safe}.json")
+    with open(fpath, "w") as f:
         json.dump(out, f, indent=2)
 
-    print(f"  Saved {len(inmates)} inmates → {path}")
-    return path, safe
+    print(f"  Saved {len(inmates)} inmates → {fpath}")
+    return fpath, safe
 
 
 def main():
@@ -114,6 +143,10 @@ def main():
             print(f"  {f['id']:>6}  {f['label']}")
         return
 
+    # Load existing index to preserve canonical facility keys
+    id_to_key, existing_facs = load_existing_index()
+    print(f"Loaded {len(id_to_key)} existing facility keys from index")
+
     exclude_ids = set(int(x) for x in args.exclude)
 
     if args.facility:
@@ -132,22 +165,33 @@ def main():
     for fac in sorted(targets, key=lambda x: x["label"]):
         fid = fac["id"]
         label = fac["label"]
-        print(f"\nScraping: {label} (ID: {fid})")
+        existing_key = id_to_key.get(fid)
+        print(f"\nScraping: {label} (ID: {fid}){f' [key={existing_key}]' if existing_key else ' [new]'}")
         try:
             inmates = scrape_facility(fid, label)
-            path, key = save_facility(fid, label, inmates)
-            results[key] = {"label": label, "id": fid, "count": len(inmates), "file": path}
+            fpath, key = save_facility(fid, label, inmates, forced_key=existing_key)
+            existing_info = existing_facs.get(key, {})
+            results[key] = {
+                "label": label,
+                "id":    fid,
+                "count": len(inmates),
+                "file":  fpath,
+                "odrc":  existing_info.get("odrc", False)
+            }
         except Exception as e:
             print(f"  ERROR: {e}", file=sys.stderr)
 
-    # Write index file for the backend to discover
+    # Merge results into existing index — a single-facility run won't wipe other entries
+    merged = dict(existing_facs)
+    merged.update(results)
+
     index_path = os.path.join(DATA_DIR, "go_facilities_index.json")
     with open(index_path, "w") as f:
         json.dump({
             "lastUpdated": datetime.utcnow().isoformat() + "Z",
-            "facilities": results
+            "facilities":  merged
         }, f, indent=2)
-    print(f"\nIndex saved → {index_path}")
+    print(f"\nIndex saved → {index_path}  ({len(merged)} total entries)")
     print(f"\nDone. Scraped {len(results)} facilities.")
 
 

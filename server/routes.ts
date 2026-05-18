@@ -25,8 +25,55 @@ if (!fs.existsSync(SNAPSHOTS_DIR)) {
   fs.mkdirSync(SNAPSHOTS_DIR, { recursive: true });
 }
 
+// ─── GettingOut: seed /data from bundled /app on first run after volume provision ─
+// The /data volume is empty on fresh attach — copy bundled index + go_*.json files.
+// Also merges gracefully: bundled entries win over any partial /data leftovers.
+const _BUNDLED_GO_DIR = fs.existsSync(path.resolve(process.cwd(), "go_facilities_index.json"))
+  ? path.resolve(process.cwd())
+  : path.resolve(__dirname, "..");
+const _DATA_INDEX_PATH = "/data/go_facilities_index.json";
+const _BUNDLED_INDEX_PATH = path.join(_BUNDLED_GO_DIR, "go_facilities_index.json");
+if (fs.existsSync("/data") && fs.existsSync(_BUNDLED_INDEX_PATH)) {
+  const bundledIdx = JSON.parse(fs.readFileSync(_BUNDLED_INDEX_PATH, "utf8"));
+  const bundledCount = Object.keys(bundledIdx.facilities ?? {}).length;
+  let dataCount = 0;
+  if (fs.existsSync(_DATA_INDEX_PATH)) {
+    try { dataCount = Object.keys(JSON.parse(fs.readFileSync(_DATA_INDEX_PATH, "utf8")).facilities ?? {}).length; } catch {}
+  }
+  if (dataCount < bundledCount) {
+    console.log(`[go-seed] /data has ${dataCount} entries, bundled has ${bundledCount} — seeding`);
+    if (dataCount > 0) {
+      // Merge: bundled entries are canonical; /data entries may have fresher counts
+      try {
+        const dataIdx = JSON.parse(fs.readFileSync(_DATA_INDEX_PATH, "utf8"));
+        const merged = { ...bundledIdx.facilities, ...dataIdx.facilities };
+        fs.writeFileSync(_DATA_INDEX_PATH, JSON.stringify({ ...bundledIdx, facilities: merged }, null, 2));
+      } catch { fs.copyFileSync(_BUNDLED_INDEX_PATH, _DATA_INDEX_PATH); }
+    } else {
+      fs.copyFileSync(_BUNDLED_INDEX_PATH, _DATA_INDEX_PATH);
+    }
+    // Copy any bundled go_*.json files not yet in /data
+    try {
+      fs.readdirSync(_BUNDLED_GO_DIR)
+        .filter((f: string) => f.startsWith("go_") && f.endsWith(".json"))
+        .forEach((f: string) => {
+          const dest = path.join("/data", f);
+          if (!fs.existsSync(dest)) {
+            fs.copyFileSync(path.join(_BUNDLED_GO_DIR, f), dest);
+            console.log(`[go-seed] seeded ${f}`);
+          }
+        });
+    } catch (e: any) { console.warn("[go-seed] copy warning:", e.message); }
+  }
+  // Ensure /data/snapshots exists
+  if (!fs.existsSync("/data/snapshots")) {
+    fs.mkdirSync("/data/snapshots", { recursive: true });
+    console.log("[go-seed] created /data/snapshots");
+  }
+}
+
 // ─── GettingOut module-level constants & helpers ───────────────────────────────
-const GO_DATA_DIR_GLOBAL = fs.existsSync("/data")
+const GO_DATA_DIR_GLOBAL = fs.existsSync(_DATA_INDEX_PATH)
   ? "/data"
   : fs.existsSync(path.resolve(process.cwd(), "go_facilities_index.json"))
   ? path.resolve(process.cwd())
@@ -314,11 +361,8 @@ export async function registerRoutes(
 ): Promise<Server> {
 
   // ── GettingOut facility index — auto-discover all scraped GO facilities ──
-  // On Railway, process.cwd() = /app and JSON files are committed to repo root (/app)
-  // __dirname in dist/index.cjs = /app/dist, so we go one level up as fallback
-  const GO_DATA_DIR = fs.existsSync("/data") ? "/data"
-    : fs.existsSync(path.resolve(process.cwd(), "go_facilities_index.json")) ? path.resolve(process.cwd())
-    : path.resolve(path.dirname(require.resolve("./routes")), "..");
+  // Reuse the module-level GO_DATA_DIR_GLOBAL which was already seeded at startup
+  const GO_DATA_DIR = GO_DATA_DIR_GLOBAL;
   const GO_INDEX_FILE = path.join(GO_DATA_DIR, "go_facilities_index.json");
 
   function getGoFacilityKeys(): string[] {
@@ -525,6 +569,44 @@ export async function registerRoutes(
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
+  });
+
+  // POST /api/gettingout/reset-index — force clean seed from bundled /app files to /data
+  app.post("/api/gettingout/reset-index", (_req, res) => {
+    if (!fs.existsSync("/data")) return res.status(400).json({ error: "/data volume not mounted" });
+    if (!fs.existsSync(_BUNDLED_INDEX_PATH)) return res.status(400).json({ error: "bundled index not found" });
+    try {
+      fs.copyFileSync(_BUNDLED_INDEX_PATH, _DATA_INDEX_PATH);
+      let copied = 0;
+      fs.readdirSync(_BUNDLED_GO_DIR)
+        .filter((f: string) => f.startsWith("go_") && f.endsWith(".json"))
+        .forEach((f: string) => {
+          fs.copyFileSync(path.join(_BUNDLED_GO_DIR, f), path.join("/data", f));
+          copied++;
+        });
+      for (const k of Object.keys(cache)) { if (k.startsWith("go-")) delete cache[k]; }
+      const idx = JSON.parse(fs.readFileSync(_DATA_INDEX_PATH, "utf8"));
+      res.json({ ok: true, facilitiesInIndex: Object.keys(idx.facilities ?? {}).length, goFilesCopied: copied });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // GET /api/gettingout/scraper-test — run scraper for one small facility synchronously
+  app.get("/api/gettingout/scraper-test", async (_req, res) => {
+    const scriptPath = path.resolve(path.dirname(SCRIPT_PATH), "gettingout_scraper.py");
+    if (!fs.existsSync(scriptPath)) return res.status(500).json({ error: "gettingout_scraper.py not found", scriptPath });
+    const cmd = `python3 ${scriptPath} --facility 394527`; // Montour County PA (small)
+    try {
+      const { stdout, stderr } = await execAsync(cmd, { timeout: 120000 });
+      const testFile = path.join(GO_DATA_DIR, "go_montour.json");
+      const fileExists = fs.existsSync(testFile);
+      res.json({
+        ok: true, cmd, scriptPath, GO_DATA_DIR,
+        stdout: stdout.slice(-1000), stderr: stderr.slice(-300),
+        testFile, fileExists,
+        fileMtime: fileExists ? fs.statSync(testFile).mtime.toISOString() : null,
+        fileSize: fileExists ? fs.statSync(testFile).size : 0,
+      });
+    } catch (err: any) { res.status(500).json({ error: err.message, cmd, GO_DATA_DIR }); }
   });
 
   // POST /api/gettingout/crossref — re-run cross-reference against live county rosters
