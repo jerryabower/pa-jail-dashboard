@@ -490,6 +490,43 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/gettingout/refresh — re-scrape all (or one) GettingOut facility via live API
+  // Writes fresh go_*.json files so that the next snapshot captures real current data.
+  // Optional body: { "facility": "york" } to refresh a single facility.
+  // No body = refresh all active facilities (runs sequentially, may take ~5 min).
+  app.post("/api/gettingout/refresh", async (req, res) => {
+    const scriptPath = path.resolve(path.dirname(SCRIPT_PATH), "gettingout_scraper.py");
+    if (!fs.existsSync(scriptPath)) {
+      return res.status(500).json({ error: "gettingout_scraper.py not found" });
+    }
+    const singleKey = (req.body as any)?.facility as string | undefined;
+    try {
+      let cmd: string;
+      if (singleKey) {
+        const idx = fs.existsSync(GO_INDEX_FILE)
+          ? JSON.parse(fs.readFileSync(GO_INDEX_FILE, "utf8"))
+          : { facilities: {} };
+        const entry = idx.facilities?.[singleKey];
+        if (!entry?.id) return res.status(400).json({ error: `Unknown facility key: ${singleKey}` });
+        cmd = `python3 ${scriptPath} --facility ${entry.id}`;
+      } else {
+        cmd = `python3 ${scriptPath} --all`;
+      }
+      // Fire async — respond immediately so caller isn't waiting up to 5 min
+      res.json({ ok: true, message: singleKey ? `Refreshing ${singleKey}` : "Refreshing all GO facilities (background)", async: true });
+      execAsync(cmd, { timeout: 600000 }).then(({ stdout, stderr }) => {
+        // Clear in-memory cache for all GO keys so next fetch reads fresh files
+        for (const k of Object.keys(cache)) {
+          if (k.startsWith("go-")) delete cache[k];
+        }
+        console.log(`[go-refresh] done: ${stdout.slice(-200)}`);
+        if (stderr) console.error(`[go-refresh] stderr: ${stderr.slice(-200)}`);
+      }).catch(err => console.error(`[go-refresh] error: ${err.message}`));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/gettingout/crossref — re-run cross-reference against live county rosters
   // Only checks GO_CROSS_REF counties (Lancaster & Dauphin excluded)
   app.post("/api/gettingout/crossref", async (_req, res) => {
