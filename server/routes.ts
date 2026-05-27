@@ -304,6 +304,50 @@ async function backgroundFetchPadoc(): Promise<void> {
   }
 }
 
+// Foreground fetch — blocks until complete, forces a live scrape.
+// Used by the snapshot endpoint so each weekly snapshot reflects truly fresh data.
+async function foregroundFetchPadoc(): Promise<any[]> {
+  // If a background fetch is already running, wait for it to finish (poll every 5s, max 10 min)
+  if (padocFetchInProgress) {
+    console.log("[padoc] foreground fetch waiting for in-progress background fetch...");
+    await new Promise<void>((resolve) => {
+      const interval = setInterval(() => {
+        if (!padocFetchInProgress) { clearInterval(interval); resolve(); }
+      }, 5000);
+      setTimeout(() => { clearInterval(interval); resolve(); }, 600000);
+    });
+    // Return whatever the background fetch stored
+    const disk = loadPadocFromDisk();
+    return disk ? disk.data : (cache["padoc"]?.data ?? []);
+  }
+
+  padocFetchInProgress = true;
+  console.log("[padoc] foreground fetch starting (snapshot mode)...");
+  try {
+    const { stdout } = await execAsync(
+      `python3 ${SCRIPT_PATH} --facility padoc`,
+      { timeout: 600000 } // 10 min
+    );
+    const inmates = parsePythonOutput(stdout);
+    if (inmates.length > 0) {
+      const normalized = inmates.map(normalizePadocInmate);
+      savePadocToDisk(normalized);
+      console.log(`[padoc] foreground fetch complete: ${normalized.length} inmates`);
+      return normalized;
+    } else {
+      console.log("[padoc] foreground fetch returned 0 inmates — returning cached data");
+      const disk = loadPadocFromDisk();
+      return disk ? disk.data : (cache["padoc"]?.data ?? []);
+    }
+  } catch (err: any) {
+    console.error("[padoc] foreground fetch failed:", err.message);
+    const disk = loadPadocFromDisk();
+    return disk ? disk.data : (cache["padoc"]?.data ?? []);
+  } finally {
+    padocFetchInProgress = false;
+  }
+}
+
 async function fetchFacility(facility: string): Promise<any[]> {
   const now = Date.now();
 
@@ -716,7 +760,11 @@ export async function registerRoutes(
       return res.status(400).json({ error: "Unknown facility" });
     }
     try {
-      const inmates = await fetchFacility(facility);
+      // PADOC: force a live scrape so each weekly snapshot reflects fresh data,
+      // not the 60-min cached version (which would produce zero deltas week-over-week).
+      const inmates = facility === "padoc"
+        ? await foregroundFetchPadoc()
+        : await fetchFacility(facility);
       const snap = addSnapshot(facility, inmates);
       res.json({ ok: true, timestamp: snap.timestamp, count: snap.count });
     } catch (err: any) {
