@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -775,7 +776,8 @@ export async function registerRoutes(
   // POST /api/snapshot-push/:facility — accept an externally-scraped inmates array and save as snapshot
   // Used when the Railway Python scraper can't run (e.g. PADOC on Railway falls back to stale cache).
   // The weekly cron running in our sandbox scrapes fresh data and pushes it here.
-  app.post("/api/snapshot-push/:facility", (req, res) => {
+  // Uses a 50MB body limit to accommodate large rosters (PADOC ~20MB).
+  app.post("/api/snapshot-push/:facility", express.json({ limit: "50mb" }), (req, res) => {
     const { facility } = req.params;
     if (!ALLOWED.includes(facility)) {
       return res.status(400).json({ error: "Unknown facility" });
