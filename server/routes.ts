@@ -772,6 +772,34 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/snapshot-push/:facility — accept an externally-scraped inmates array and save as snapshot
+  // Used when the Railway Python scraper can't run (e.g. PADOC on Railway falls back to stale cache).
+  // The weekly cron running in our sandbox scrapes fresh data and pushes it here.
+  app.post("/api/snapshot-push/:facility", (req, res) => {
+    const { facility } = req.params;
+    if (!ALLOWED.includes(facility)) {
+      return res.status(400).json({ error: "Unknown facility" });
+    }
+    const inmates: any[] = req.body?.inmates;
+    if (!Array.isArray(inmates) || inmates.length === 0) {
+      return res.status(400).json({ error: "inmates array required and must be non-empty" });
+    }
+    try {
+      // For PADOC, normalize the incoming records to frontend shape
+      const normalized = facility === "padoc"
+        ? inmates.map(normalizePadocInmate)
+        : inmates;
+      const snap = addSnapshot(facility, normalized);
+      // Also update the in-memory/disk cache so GET /api/roster/padoc returns fresh data
+      if (facility === "padoc") {
+        savePadocToDisk(normalized);
+      }
+      res.json({ ok: true, timestamp: snap.timestamp, count: snap.count });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to save pushed snapshot" });
+    }
+  });
+
   // GET /api/snapshots/:facility — list all snapshot metadata (no inmate arrays)
   app.get("/api/snapshots/:facility", (req, res) => {
     const { facility } = req.params;
