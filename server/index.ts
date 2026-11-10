@@ -49,7 +49,9 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      if (capturedJsonResponse && path === "/api/roster/dauphin") {
+        logLine += ` :: count=${capturedJsonResponse.count ?? 0} fetching=${!!capturedJsonResponse.fetching}`;
+      } else if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 

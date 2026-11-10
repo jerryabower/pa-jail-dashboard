@@ -323,63 +323,11 @@ def parse_dauphin_page(soup: BeautifulSoup, facility_name: str) -> list[dict]:
 
 
 def fetch_dauphin(url: str, facility_name: str) -> list[dict]:
-    sess = get_session()
-    all_inmates = []
-
-    # Initial search — blank last name returns all current inmates
-    search_payload = {
-        "flow_action": "searchbyname",
-        "quantity": "30",
-        "systemUser_identifiervalue": "",
-        "searchtype": "NAME",
-        "systemUser_includereleasedinmate": "",
-        "systemUser_includereleasedinmate2": "",
-        "systemUser_firstName": "",
-        "systemUser_lastName": "",
-        "systemUser_dateOfBirth": "",
-    }
-
-    print(f"  Page 1 ...", end="", flush=True)
-    resp = sess.post(url, data=search_payload, timeout=20)
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
-
-    page = parse_dauphin_page(soup, facility_name)
-    all_inmates.extend(page)
-    print(f" {len(page)} records")
-
-    # Determine total
-    total_match = re.search(r"of\s+([\d,]+)\s+results", resp.text)
-    total = int(total_match.group(1).replace(",", "")) if total_match else 0
-    if total:
-        print(f"  Total reported by server: {total}")
-
-    # Paginate via offset — hidden fields flow_action=next & currentStart
-    current_start = 31
-    page_num = 2
-
-    while current_start <= total:
-        next_payload = {
-            "flow_action": "next",
-            "currentStart": str(current_start),
-            "quantity": "30",
-        }
-        print(f"  Page {page_num} ...", end="", flush=True)
-        resp = sess.post(url, data=next_payload, timeout=20)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-        page = parse_dauphin_page(soup, facility_name)
-        if not page:
-            break
-        all_inmates.extend(page)
-        print(f" {len(page)} records (total: {len(all_inmates)})")
-
-        current_start += 30
-        page_num += 1
-        time.sleep(0.25)
-
-    return all_inmates
+    from dauphin_collector import collect
+    return collect(progress=lambda p: print(
+        f"  Dauphin {p['completed']}/{p['total']} pairs; {p['found']} current records",
+        flush=True,
+    ))
 
 
 # ─────────────────────────────────────────────────────────────────────────────

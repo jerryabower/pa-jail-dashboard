@@ -6,6 +6,7 @@ import { promisify } from "util";
 import path from "path";
 import fs from "fs";
 import https from "https";
+import { dauphinRoster, refreshDauphin, completedDauphin } from "./dauphin";
 
 const execAsync = promisify(exec);
 
@@ -351,6 +352,7 @@ async function foregroundFetchPadoc(): Promise<any[]> {
 
 async function fetchFacility(facility: string): Promise<any[]> {
   const now = Date.now();
+  if (facility === "dauphin") return completedDauphin();
 
   // PA DOC: serve from disk cache, refresh in background if stale
   if (facility === "padoc") {
@@ -739,6 +741,7 @@ export async function registerRoutes(
       return res.status(400).json({ error: "Unknown facility" });
     }
     try {
+      if (facility === "dauphin") return res.json(dauphinRoster(req.query.status !== "1"));
       const inmates = await fetchFacility(facility);
       const isFetching = facility === "padoc" && inmates.length === 0 && padocFetchInProgress;
       res.json({ facility, count: inmates.length, inmates, cached: !!cache[facility], fetching: isFetching });
@@ -750,6 +753,10 @@ export async function registerRoutes(
   // DELETE /api/cache/:facility — bust cache
   app.delete("/api/cache/:facility", (req, res) => {
     const { facility } = req.params;
+    if (facility === "dauphin") {
+      const result = refreshDauphin();
+      return res.status(result.ok ? 200 : 429).json(result);
+    }
     delete cache[facility];
     res.json({ ok: true });
   });
@@ -779,6 +786,9 @@ export async function registerRoutes(
   // Uses a 50MB body limit to accommodate large rosters (PADOC ~20MB).
   app.post("/api/snapshot-push/:facility", express.json({ limit: "50mb" }), (req, res) => {
     const { facility } = req.params;
+    if (facility === "dauphin") {
+      return res.status(400).json({ error: "Use Save Snapshot after a completed Dauphin collection; unverified roster uploads are not accepted." });
+    }
     if (!ALLOWED.includes(facility)) {
       return res.status(400).json({ error: "Unknown facility" });
     }

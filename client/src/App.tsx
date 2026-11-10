@@ -32,6 +32,10 @@ interface RosterResponse {
   inmates: Inmate[];
   cached: boolean;
   fetching?: boolean; // true when PA DOC background fetch is running
+  fetchedAt?: string | null;
+  collectionError?: string | null;
+  retryAt?: number | null;
+  progress?: { completed: number; total: number; prefix: string; found: number; releasedExcluded: number };
 }
 
 interface SnapshotMeta {
@@ -91,6 +95,7 @@ const FACILITIES = [
   { key: "monroe",       label: "Monroe County",         short: "Monroe",      slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "erie",         label: "Erie County",            short: "Erie",        slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "lancaster",     label: "Lancaster County",      short: "Lancaster",   slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
+  { key: "dauphin",       label: "Dauphin County Prison", short: "Dauphin",     slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "padoc",         label: "PA State Prisons",      short: "PA DOC",      slowFetch: true,  comingSoon: false, searchOnly: false, gettingOut: false, yorkGo: false },
   { key: "gettingout",       label: "GettingOut Contacts",      short: "GettingOut",  slowFetch: false, comingSoon: false, searchOnly: false, gettingOut: true,  yorkGo: false },
 ];
@@ -532,7 +537,7 @@ function DeltaPanel({ facility }: { facility: string }) {
 
 // ─── Skeleton loading ──────────────────────────────────────────────────────────
 
-function TableSkeleton({ slowFetch = false, fetching = false }: { slowFetch?: boolean; fetching?: boolean }) {
+function TableSkeleton({ slowFetch = false, fetching = false, dauphin = false }: { slowFetch?: boolean; fetching?: boolean; dauphin?: boolean }) {
   return (
     <div className="p-4 space-y-2">
       {Array.from({ length: 15 }).map((_, i) => (
@@ -546,7 +551,8 @@ function TableSkeleton({ slowFetch = false, fetching = false }: { slowFetch?: bo
       ))}
       <div className="text-center pt-6 space-y-1">
         <p className="text-xs text-muted-foreground">
-          {fetching
+          {dauphin ? "Searching Dauphin last-name pairs AA–ZZ. Released inmates are excluded."
+            : fetching
             ? "Building state prison roster — querying 180+ PA DOC facilities in the background…"
             : slowFetch
             ? "Fetching PA state prison roster — this may take 3–5 minutes on first load."
@@ -1151,7 +1157,7 @@ function SideNav({ activeFacility, onSelect, activeCount, filteredCount }: SideN
   };
 
   return (
-    <aside className="shrink-0 w-52 flex flex-col border-r border-border bg-card overflow-y-auto">
+    <aside className={`shrink-0 ${activeFacility === "dauphin" ? "w-full max-h-44 sm:max-h-none sm:w-52" : "w-52"} flex flex-col border-r border-border bg-card overflow-y-auto`}>
 
       {/* ── PA Counties section ── */}
       <div className="px-3 pt-3 pb-1">
@@ -1242,7 +1248,8 @@ export default function App() {
     queryKey: ["/api/roster", activeFacility],
     queryFn: () => apiRequest("GET", `/api/roster/${activeFacility}`).then(r => r.json()),
     staleTime: 5 * 60 * 1000,
-    retry: 1,
+    retry: activeFacility === "dauphin" ? false : 1,
+    refetchOnWindowFocus: activeFacility !== "dauphin",
     // Auto-poll every 15s when PA DOC is still fetching in background
     refetchInterval: (query) => {
       const d = query.state.data as RosterResponse | undefined;
@@ -1296,7 +1303,7 @@ export default function App() {
       style={{ height: "100dvh", overflow: "hidden" }}
     >
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-border bg-card/80 backdrop-blur-sm">
+      <header className={`shrink-0 flex ${activeFacility === "dauphin" ? "flex-wrap gap-3 sm:flex-nowrap" : ""} items-center justify-between px-5 py-3 border-b border-border bg-card/80 backdrop-blur-sm`}>
         <div className="flex items-center gap-3">
           <Logo />
           <div>
@@ -1304,7 +1311,7 @@ export default function App() {
               PA County Jail Roster
             </h1>
             <p className="text-[11px] text-muted-foreground leading-tight">
-              Live public data · Monroe · Erie · Lancaster · PA State · GettingOut
+              Live public data · Monroe · Erie · Lancaster · Dauphin · PA State · GettingOut
             </p>
           </div>
         </div>
@@ -1333,7 +1340,7 @@ export default function App() {
               variant="outline"
               size="sm"
               onClick={() => refreshMutation.mutate()}
-              disabled={isLoading || refreshMutation.isPending}
+              disabled={isLoading || refreshMutation.isPending || (activeFacility === "dauphin" && data?.fetching)}
               data-testid="button-refresh"
               className="text-xs gap-1.5 h-8"
             >
@@ -1345,7 +1352,7 @@ export default function App() {
       </header>
 
       {/* ── Two-section sidebar nav ──────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className={`flex ${activeFacility === "dauphin" ? "flex-col sm:flex-row" : ""} flex-1 overflow-hidden`}>
         <SideNav
           activeFacility={activeFacility}
           onSelect={(key) => { setActiveFacility(key); setQuery(""); setActiveView("roster"); }}
@@ -1354,7 +1361,7 @@ export default function App() {
         />
 
         {/* ── Right panel ── */}
-        <div className="flex flex-col flex-1 overflow-hidden">
+        <div className={`flex flex-col flex-1 overflow-hidden ${activeFacility === "dauphin" ? "min-h-0 min-w-0" : ""}`}>
 
       {/* ── View toggle (Roster / Delta) — only for live roster facilities ── */}
       {!isComingSoon && !isSearchOnly && !isGettingOut && (
@@ -1420,6 +1427,18 @@ export default function App() {
 
       {/* ── Main content ──────────────────────────────────────────────── */}
       <main className="flex-1 overflow-y-auto overscroll-contain bg-background">
+        {activeFacility === "dauphin" && activeView === "roster" && (
+          <div className="px-4 py-3 text-xs text-muted-foreground border-b border-border space-y-1" role="status" data-testid="dauphin-status">
+            <p>Current custody only. Released inmates excluded.</p>
+            {data?.fetching && <p>Searching {data.progress?.completed ?? 0} / 676 pairs
+              {data.progress?.prefix ? ` (${data.progress.prefix})` : ""}. {data.progress?.found ?? 0} unique records found.
+              {data.cached ? " Showing the previous completed roster below." : " Results appear when all pairs finish."}</p>}
+            {data?.fetchedAt && <p>Last completed: {new Date(data.fetchedAt).toLocaleString()}. Use Refresh for a new pull.</p>}
+            {data?.collectionError && <p className="text-destructive">{data.collectionError}
+              {data.retryAt ? ` Retry after ${new Date(data.retryAt).toLocaleTimeString()}.` : ""}</p>}
+            {refreshMutation.isError && <p className="text-destructive">Refresh was not started. Check the cooldown or try again later.</p>}
+          </div>
+        )}
 
         {/* Coming soon facilities */}
         {isGettingOut ? (
@@ -1461,7 +1480,7 @@ export default function App() {
           <DeltaPanel facility={activeFacility} />
 
         ) : (isLoading || (data?.fetching && data?.inmates?.length === 0)) ? (
-          <TableSkeleton slowFetch={isSlowFetch} fetching={data?.fetching} />
+          <TableSkeleton slowFetch={isSlowFetch} fetching={data?.fetching} dauphin={activeFacility === "dauphin"} />
         ) : isError ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-muted-foreground">
             <AlertCircle className="w-10 h-10 text-destructive/60" />
